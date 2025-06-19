@@ -350,7 +350,7 @@ class DampedRotarySpring:
         SPACE.add(self.joint)
 
 clickables = pygame.sprite.Group()
-clicked = pygame.sprite.Group()
+clicked = pygame.sprite.GroupSingle()
 
 temp_joint = None
 picking = False
@@ -370,6 +370,7 @@ class App:
         global temp_joint, picking
         while True:
             left_click = pygame.mouse.get_pressed()[0]
+            # print('left_click', left_click)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return
@@ -380,34 +381,21 @@ class App:
                 # if isinstance(temp_joint, PivotJoint):
                 #     SPACE.remove(temp_joint.joint)
 
-                # print('yeet')
             for i in clickables:
                 # todo make sprite group for clickables
                 if left_click:
                     if i.rect.collidepoint(pygame.mouse.get_pos()):
                         picking = True
+                        clicked.add(i)
                         # print("!!!!!")
-                        i.body.body_type = pymunk.Body.KINEMATIC
-                        # i.body.m = 0
-                        i.body.position = pygame.mouse.get_pos()
-                        # if block1.shape in SPACE.shapes:
-                        #     SPACE.remove(block1.body, block1.shape)
-
-                        # b = new_body_at(*pygame.mouse.get_pos(), body_type=pymunk.Body.DYNAMIC)
-                        # if temp_joint is None:
-                        # temp_joint = PivotJoint(b, block1.body, pygame.mouse.get_pos())
-                        # temp_joint.joint.collide_bodies = False
-                    else:
-                        picking = True
                 else:
                     picking = False
-                    i.body.body_type = pymunk.Body.DYNAMIC
-                    # i.body.m = 1
-                    # if block1.shape not in SPACE.shapes:
-                    #     SPACE.add(block1.body, block1.shape)
-                    # block1.body.moment = 0
-                print(i.body.position)
-            # print(pygame.mouse.get_pos(), picking)
+            if len(clicked) > 0:
+                if picking:
+                    clicked.sprite.body.body_type = pymunk.Body.KINEMATIC
+                    clicked.sprite.body.position = pygame.mouse.get_pos()
+                else:
+                    clicked.sprite.body.body_type = pymunk.Body.DYNAMIC
 
             bodies.update()
             joints.update()
@@ -473,5 +461,5 @@ if __name__ == '__main__':
 
     App().run()
 
-    print(SPACE.shapes)  # Should show a list of shapes
+    # print(SPACE.shapes)  # Should show a list of shapes
 pygame.quit()
