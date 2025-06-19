@@ -25,6 +25,17 @@ def clear_surface(h, w, fill=None):
         s.fill(fill)
         return s
 
+def limit_velocity(body, gravity, damping, dt):
+    """
+    https://www.pymunk.org/en/latest/overview.html
+    :param body:
+    :param gravity
+    :param damping
+    :param dt
+    :return:
+    """
+    max_velocity = 1000
+    # pymunk.Body.update_velocity()
 
 def flip(x, y, null=False, return_as=tuple):
     if not null:
@@ -327,6 +338,7 @@ class DampedRotarySpring:
         SPACE.add(self.joint)
 
 clickables = pygame.sprite.Group()
+clicked = pygame.sprite.Group()
 
 temp_joint = None
 picking = False
@@ -357,15 +369,15 @@ class App:
                 #     SPACE.remove(temp_joint.joint)
 
                 # print('yeet')
-            for sprite in clickables:
+            for i in clickables:
                 # todo make sprite group for clickables
                 if left_click:
-                    if sprite.rect.collidepoint(pygame.mouse.get_pos()):
+                    if i.rect.collidepoint(pygame.mouse.get_pos()):
                         picking = True
                         # print("!!!!!")
-                        sprite.body.body_type = pymunk.Body.STATIC
-                        sprite.m = 0
-                        sprite.body.position = pygame.mouse.get_pos()
+                        i.body.body_type = pymunk.Body.KINEMATIC
+                        # i.body.m = 0
+                        i.body.position = pygame.mouse.get_pos()
                         # if block1.shape in SPACE.shapes:
                         #     SPACE.remove(block1.body, block1.shape)
 
@@ -377,12 +389,12 @@ class App:
                         picking = True
                 else:
                     picking = False
-                    sprite.body.body_type = pymunk.Body.DYNAMIC
-                    sprite.body.m = 10
+                    i.body.body_type = pymunk.Body.DYNAMIC
+                    # i.body.m = 1
                     # if block1.shape not in SPACE.shapes:
                     #     SPACE.add(block1.body, block1.shape)
                     # block1.body.moment = 0
-                print(sprite.body.position)
+                print(i.body.position)
             # print(pygame.mouse.get_pos(), picking)
 
             bodies.update()
@@ -427,31 +439,9 @@ if __name__ == '__main__':
     mid_world = p + mid_local  # Attach only at the middle
     PivotJoint(b0, segment.body, mid_world, mid_local, collide=False)
 
-    # # brackets
-    # bv1 = Vec2d(50, 0)
-    # bv2 = Vec2d(0, 50)
-    # bracket1 = Bracket(p, bv1, bv2, 5)
-    # PinJoint(segment.body, bracket1.body, (0, 0))
-    # bracket2 = Bracket((p + tuple(v)), bv1, bv2, 5)
-    # PinJoint(segment.body, bracket2.body, v)
-    #
-    # # carriers
-    # v2 = Vec2d(100, 0)
-    # cp1 = p + (0, 50)
-    # carrier1 = Segment(cp1, v2, 5)
-    # PinJoint(carrier1.body, bracket1.body, (0, 0), bv1)
-    # PinJoint(carrier1.body, bracket1.body, v2, bv2)
-    #
-    # carrier2 = Segment(cp1 + v, v2, 5, )
-    # PinJoint(carrier2.body, bracket2.body, (0, 0), bv1)
-    # PinJoint(carrier2.body, bracket2.body, v2, bv2)
-    #
     Block(200, 300, m=10, clickable=True)
-    # Block(300, 300, m=40, clickable=True)
+    Block(300, 300, m=40, clickable=True)
 
-    # motor = pymunk.SimpleMotor(b0, segment.body, 1)
-    # SPACE.add(motor)
-    # s = Segment((p + v), v, )
     v2 = Vec2d(100, 0)
     s = Segment(p - v2 * 0.5, v2, m=100, damp=True)
     PivotJoint(s.body, segment.body,  v2 * 0.5, (0, 0))
@@ -459,8 +449,6 @@ if __name__ == '__main__':
     s1 = Segment(p + v - v2 * 0.5, v2, m=100, damp=True)
     PivotJoint(s1.body, segment.body, v2 * 0.5, v)
 
-    # b1 = new_body_at()
-    # slide = pymunk.
 
     # PivotJoint(segment.body, s.body, v)
 
