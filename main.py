@@ -12,7 +12,7 @@ https://youtube.com/playlist?list=PL_N_kL9gRTm8lh7GxFHh3ym1RXi6I6c50&si=IqN679o1
 """
 
 
-W, H = 400, 400
+W, H = 800, 400
 SPACE = pymunk.Space()
 SPACE.gravity = (0, 1000)
 
@@ -95,7 +95,7 @@ def get_rect(shape):
 class BodySprite(pygame.sprite.Sprite):
     body_num = 0
 
-    def __init__(self, x, y, mass=0, collision_type=0, category=0, mask=0, color=(255, 0, 0, 255),
+    def __init__(self, x, y, mass=0, collision_type=0, category=0, mask=100, color=(255, 0, 0, 255),
                  body_type=pymunk.Body.DYNAMIC, clickable=False):
         super().__init__(bodies)
         if clickable:
@@ -108,6 +108,7 @@ class BodySprite(pygame.sprite.Sprite):
 
         self.shape = self.set_shape()  # pymunk.Poly(self.body, [(-1, 1), (1, 1), (1, -1), (-1, -1)])
         self.shape.density = 1
+        self.shape.friction = 1
         self.shape.collision_type = collision_type
         self.shape.filter = pymunk.ShapeFilter(categories=category, mask=mask)
 
@@ -257,11 +258,11 @@ class Rope(pygame.sprite.Sprite):
 
 class Block(BodySprite):
     def __init__(self, x, y, size=(40, 40), m=10, color=(255, 0, 0), clickable=False,
-                 collision_type=0, category=0, mask=0):
+                 collision_type=0, category=0, mask=0, body_type=pymunk.Body.DYNAMIC):
 
         self.size = self.w, self.h = size
         super().__init__(x, y, m, color=color, clickable=clickable,
-                         collision_type=collision_type, category=category, mask=mask)
+                         collision_type=collision_type, category=category, mask=mask, body_type=body_type)
 
         self.shape.elasticity = 0
         self.shape.friction = 0.5
@@ -330,6 +331,11 @@ class Bracket:
         # super().__init__(*p)
 
 
+class Seesaw:
+    def __init__(self, center, ):
+        pass
+        # self.beam =
+
 class PivotJoint:
     def __init__(self, b, b2, a=(0, 0), a2=(0, 0), collide=False):
         self.joint = pymunk.PivotJoint(b, b2, a, a2)
@@ -355,6 +361,10 @@ clicked = pygame.sprite.GroupSingle()
 temp_joint = None
 picking = False
 
+class Level:
+    def __init__(self, number: int, weights: list, level_type):
+        self.number = number
+        self.weight = weights
 
 class App:
     def __init__(self):
@@ -427,8 +437,20 @@ class App:
 
 if __name__ == '__main__':
 
-    Box((0, 0), (W, H), category=16, mask=7)
+    Box((0, 0), (W / 2, H), category=16, mask=7)
+    Box((W/2, 0), (W, H), category=16, mask=7)
+
+    # todo make group for box #2
     # ball1 = Ball(100, 0, 5)
+    level_weights = [10, 50, 40, ]
+
+    #staircase
+    num = len(level_weights)
+    l = W/2/num
+    for i in range(num):
+        Segment((W/2 + i *l, H - i * l), (l, 0), body_type=pymunk.Body.STATIC, category=16, mask=7)
+        # when exactly one block is touching it
+
 
     b0 = SPACE.static_body
     p = Vec2d(100, 350)
@@ -440,8 +462,9 @@ if __name__ == '__main__':
     PivotJoint(b0, beam.body, mid_world, mid_local, collide=False)
 
     # block
-    Block(200, 300, m=10, clickable=True, category=4, mask=22)
-    Block(300, 300, m=40, clickable=True, category=4, mask=22)
+    blocks = pygame.sprite.Group()
+    for i in range(num):
+        Block(i * 50, 50, m=level_weights[i], clickable=True, category=4, mask=22)
 
     # carriers
     v2 = Vec2d(100, 0)
