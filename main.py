@@ -95,7 +95,7 @@ def get_rect(shape):
 class BodySprite(pygame.sprite.Sprite):
     body_num = 0
 
-    def __init__(self, x, y, mass=0, collision_type=0, color=(255, 0, 0, 255),
+    def __init__(self, x, y, mass=0, collision_type=0, category=0, mask=0, color=(255, 0, 0, 255),
                  body_type=pymunk.Body.DYNAMIC, clickable=False):
         super().__init__(bodies)
         if clickable:
@@ -109,6 +109,7 @@ class BodySprite(pygame.sprite.Sprite):
         self.shape = self.set_shape()  # pymunk.Poly(self.body, [(-1, 1), (1, 1), (1, -1), (-1, -1)])
         self.shape.density = 1
         self.shape.collision_type = collision_type
+        self.shape.filter = pymunk.ShapeFilter(categories=category, mask=mask)
 
         self.rect = pygame.Rect(self.x, self.y, self.m * 10, self.m * 10)
 
@@ -149,7 +150,7 @@ class Ball(BodySprite):
 
 
 class Box:
-    def __init__(self, p0=(0, 0), p1=(W, H), d=4, color=(255, 0, 0)):
+    def __init__(self, p0=(0, 0), p1=(W, H), d=4, color=(255, 0, 0), category=0, mask=0):
         # super().__init__(*p0, color=color, body_type=pymunk.Body.STATIC)
         x0, y0 = p0
         x1, y1 = p1
@@ -159,6 +160,7 @@ class Box:
                 SPACE.static_body, vs[i], vs[(i + 1) % 4], d)
             seg.elasticity = 1
             seg.friction = 0.5
+            seg.filter = pymunk.ShapeFilter(categories=category, mask=mask)
             # seg.color = color
             SPACE.add(seg)
 
@@ -254,10 +256,12 @@ class Rope(pygame.sprite.Sprite):
 
 
 class Block(BodySprite):
-    def __init__(self, x, y, size=(40, 40), m=10, color=(255, 0, 0), clickable=False):
+    def __init__(self, x, y, size=(40, 40), m=10, color=(255, 0, 0), clickable=False,
+                 collision_type=0, category=0, mask=0):
 
         self.size = self.w, self.h = size
-        super().__init__(x, y, m, color=color, clickable=clickable)
+        super().__init__(x, y, m, color=color, clickable=clickable,
+                         collision_type=collision_type, category=category, mask=mask)
 
         self.shape.elasticity = 0
         self.shape.friction = 0.5
@@ -265,20 +269,28 @@ class Block(BodySprite):
     def set_shape(self):
         return pymunk.Poly.create_box(self.body, self.size)
 
+class Triangle(BodySprite):
+    def __init__(self, x, y, l, body_type=pymunk.Body.DYNAMIC, category=0, mask=0):
+        self.l = l
+        super().__init__(x, y, body_type=body_type, category=category, mask=mask)
 
-# print('yeet')
+
+    def set_shape(self):
+        return pymunk.Poly(self.body, [(self.l, self.l), (-self.l, self.l), (0, 0)])
+
+
+
 class Segment(BodySprite):
-    def __init__(self, p0, v, r=10, color=(255, 0, 0), m=20, center=False, body_type=pymunk.Body.DYNAMIC, moment=0,
-                 damp=False):
+    def __init__(self, p0, v, r=10, color=(255, 0, 0), m=20, center=False, collision_type=0, category=0, mask=0,
+                 body_type=pymunk.Body.DYNAMIC, damp=False):
         self.v = v
         self.r = r
         self.center = center
-        self.moment = moment
         self.damp = damp
 
         # mid = p0 + v * 0.5
-        super().__init__(*p0 if not self.center else (p0 + v * 0.5), mass=m, body_type=body_type, color=color)
-        self.body.moment = moment
+        super().__init__(*p0 if not self.center else (p0 + v * 0.5), mass=m, body_type=body_type, color=color,
+                         collision_type=collision_type, category=category, mask=mask)
         # self.body.position = p0  # Set the body's position to the start point
         self.shape.elasticity = 0.5
         # self.shape.filter = pymunk.ShapeFilter(group=1)
@@ -427,38 +439,31 @@ class App:
 
 if __name__ == '__main__':
 
-    Box((0, 0), (W, H))
-    ball1 = Ball(100, 0, 5)
+    Box((0, 0), (W, H), category=16, mask=7)
+    # ball1 = Ball(100, 0, 5)
 
     b0 = SPACE.static_body
-    p = Vec2d(100, 300)
+    p = Vec2d(100, 350)
     v = Vec2d(200, 0)
-    segment = Segment(p, v)
+    beam = Segment(p, v, category=1, mask=16)
 
     mid_local = 0.5 * v
     mid_world = p + mid_local  # Attach only at the middle
-    PivotJoint(b0, segment.body, mid_world, mid_local, collide=False)
+    PivotJoint(b0, beam.body, mid_world, mid_local, collide=False)
 
-    Block(200, 300, m=10, clickable=True)
-    Block(300, 300, m=40, clickable=True)
+    # block
+    Block(200, 300, m=10, clickable=True, category=4, mask=22)
+    Block(300, 300, m=40, clickable=True, category=4, mask=22)
 
+    # carriers
     v2 = Vec2d(100, 0)
-    s = Segment(p - v2 * 0.5, v2, m=100, damp=True)
-    PivotJoint(s.body, segment.body,  v2 * 0.5, (0, 0))
+    carrier1 = Segment(p - v2 * 0.5, v2, m=100, damp=True, category=2, mask=20)
+    PivotJoint(carrier1.body, beam.body, v2 * 0.5, (0, 0))
 
-    s1 = Segment(p + v - v2 * 0.5, v2, m=100, damp=True)
-    PivotJoint(s1.body, segment.body, v2 * 0.5, v)
+    carrier2 = Segment(p + v - v2 * 0.5, v2, m=100, damp=True, category=2, mask=20)
+    PivotJoint(carrier2.body, beam.body, v2 * 0.5, v)
 
-
-    # PivotJoint(segment.body, s.body, v)
-
-
-    # DampedRotarySpring(segment.body, s.body, 0, 10000000, 1000000000)
-    # # double pendulum--working
-    # ball1 = Ball(300, 300, 10, color=(255, 0, 0))
-    # ball2 = Ball(200, 150, 10, color=(0, 255, 0), group=1)
-    # rope1 = Rope(ball1.body, (300, 550))
-    # rope2 = Rope(ball1.body, ball2.body)
+    fulcrum = Triangle(200, 350, 50, pymunk.Body.STATIC, category=8, mask=1)
 
     # # Add all bodies and joints from the sprite groups to the space ONCE before the simulation loop
     for sprite in bodies:
