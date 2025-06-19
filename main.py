@@ -84,8 +84,11 @@ def get_rect(shape):
 class BodySprite(pygame.sprite.Sprite):
     body_num = 0
 
-    def __init__(self, x, y, mass=0, collision_type=0, color=(255, 0, 0, 255), body_type=pymunk.Body.DYNAMIC):
+    def __init__(self, x, y, mass=0, collision_type=0, color=(255, 0, 0, 255),
+                 body_type=pymunk.Body.DYNAMIC, clickable=False):
         super().__init__(bodies)
+        if clickable:
+            self.add(clickables)
         self.color = color
 
         self.m = mass
@@ -240,9 +243,11 @@ class Rope(pygame.sprite.Sprite):
 
 
 class Block(BodySprite):
-    def __init__(self, x, y, size=(40, 40), m=10, color=(255, 0, 0)):
+    def __init__(self, x, y, size=(40, 40), m=10, color=(255, 0, 0), clickable=False):
+
         self.size = self.w, self.h = size
-        super().__init__(x, y, m, color=color)
+        super().__init__(x, y, m, color=color, clickable=clickable)
+
         self.shape.elasticity = 0
         self.shape.friction = 0.5
 
@@ -252,20 +257,32 @@ class Block(BodySprite):
 
 # print('yeet')
 class Segment(BodySprite):
-    def __init__(self, p0, v, r=10, color=(255, 0, 0), m=20):
+    def __init__(self, p0, v, r=10, color=(255, 0, 0), m=20, center=False, body_type=pymunk.Body.DYNAMIC, moment=0,
+                 damp=False):
         self.v = v
         self.r = r
+        self.center = center
+        self.moment = moment
+        self.damp = damp
 
         # mid = p0 + v * 0.5
-        super().__init__(*p0, mass=m, body_type=pymunk.Body.DYNAMIC, color=color)
+        super().__init__(*p0 if not self.center else (p0 + v * 0.5), mass=m, body_type=body_type, color=color)
+        self.body.moment = moment
         # self.body.position = p0  # Set the body's position to the start point
         self.shape.elasticity = 0.5
         # self.shape.filter = pymunk.ShapeFilter(group=1)
 
     def set_shape(self):
         # Always create the segment from (0, 0) to self.v in local coordinates
-        return pymunk.Segment(self.body, (0, 0), self.v, self.r)
-
+        if not self.center:
+            return pymunk.Segment(self.body, (0, 0), self.v, self.r)
+        else:
+            return pymunk.Segment(self.body, -0.5 * self.v, 0.5 * self.v, self.r)
+    def update(self):
+        BodySprite.update(self)
+        if self.damp:
+            self.body.angular_velocity *= 0.5
+        # self.body.moment = self.moment
     def draw(self, s):
         pygame.draw.line(s, self.color,
                          (self.x, self.y), pymunk.Vec2d(self.x, self.y) + self.v,
@@ -304,6 +321,10 @@ class PinJoint:
         self.joint.collide_bodies = collide
         SPACE.add(self.joint)
 
+class DampedRotarySpring:
+    def __init__(self, a, b, angle, stiffness, damping):
+        self.joint = pymunk.DampedRotarySpring(a, b, angle, stiffness, damping)
+        SPACE.add(self.joint)
 
 clickables = pygame.sprite.Group()
 
@@ -394,11 +415,11 @@ class App:
 
 if __name__ == '__main__':
 
-    # Box((0, 0), (W, H))
-    # ball1 = Ball(W / 2, H, 5)
+    Box((0, 0), (W, H))
+    ball1 = Ball(100, 0, 5)
 
     b0 = SPACE.static_body
-    p = Vec2d(100, 50)
+    p = Vec2d(100, 300)
     v = Vec2d(200, 0)
     segment = Segment(p, v)
 
@@ -406,28 +427,45 @@ if __name__ == '__main__':
     mid_world = p + mid_local  # Attach only at the middle
     PivotJoint(b0, segment.body, mid_world, mid_local, collide=False)
 
-    # brackets
-    bv1 = Vec2d(50, 0)
-    bv2 = Vec2d(0, 50)
-    bracket1 = Bracket(p, bv1, bv2, 5)
-    PinJoint(segment.body, bracket1.body, (0, 0))
-    bracket2 = Bracket((p + tuple(v)), bv1, bv2, 5)
-    PinJoint(segment.body, bracket2.body, v)
+    # # brackets
+    # bv1 = Vec2d(50, 0)
+    # bv2 = Vec2d(0, 50)
+    # bracket1 = Bracket(p, bv1, bv2, 5)
+    # PinJoint(segment.body, bracket1.body, (0, 0))
+    # bracket2 = Bracket((p + tuple(v)), bv1, bv2, 5)
+    # PinJoint(segment.body, bracket2.body, v)
+    #
+    # # carriers
+    # v2 = Vec2d(100, 0)
+    # cp1 = p + (0, 50)
+    # carrier1 = Segment(cp1, v2, 5)
+    # PinJoint(carrier1.body, bracket1.body, (0, 0), bv1)
+    # PinJoint(carrier1.body, bracket1.body, v2, bv2)
+    #
+    # carrier2 = Segment(cp1 + v, v2, 5, )
+    # PinJoint(carrier2.body, bracket2.body, (0, 0), bv1)
+    # PinJoint(carrier2.body, bracket2.body, v2, bv2)
+    #
+    Block(200, 300, m=10, clickable=True)
+    # Block(300, 300, m=40, clickable=True)
 
-    # carriers
+    # motor = pymunk.SimpleMotor(b0, segment.body, 1)
+    # SPACE.add(motor)
+    # s = Segment((p + v), v, )
     v2 = Vec2d(100, 0)
-    carrier1 = Segment(p, v2, 5)
-    PinJoint(carrier1.body, bracket1.body, (0, 0), bv1)
-    PinJoint(carrier1.body, bracket1.body, v2, bv2)
+    s = Segment(p - v2 * 0.5, v2, m=100, damp=True)
+    PivotJoint(s.body, segment.body,  v2 * 0.5, (0, 0))
 
-    carrier2 = Segment(p + v, v2, 5, )
-    PinJoint(carrier2.body, bracket2.body, (0, 0), bv1)
-    PinJoint(carrier2.body, bracket2.body, v2, bv2)
+    s1 = Segment(p + v - v2 * 0.5, v2, m=100, damp=True)
+    PivotJoint(s1.body, segment.body, v2 * 0.5, v)
 
-    # floor = Platform(0, 100, W, 100, 'red')
-    # s = Segment((200, 100), (100, 0), color='green')
-    # print(s)
+    # b1 = new_body_at()
+    # slide = pymunk.
 
+    # PivotJoint(segment.body, s.body, v)
+
+
+    # DampedRotarySpring(segment.body, s.body, 0, 10000000, 1000000000)
     # # double pendulum--working
     # ball1 = Ball(300, 300, 10, color=(255, 0, 0))
     # ball2 = Ball(200, 150, 10, color=(0, 255, 0), group=1)
