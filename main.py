@@ -203,28 +203,7 @@ class Wheel(BodySprite):
         pygame.draw.circle(s, self.color, self.body.position, self.r, 5)
 
 
-class Platform(BodySprite):
-    def __init__(self, x1, y1, x2, y2, color=(0, 0, 0), group=0):
-        self.x1, self.y1 = self.start = x1, y1
-        self.x2, self.y2 = self.end = x2, y2
 
-        super().__init__(x1, y1, color=color, body_type=pymunk.Body.STATIC)
-        # print(self.body)
-
-        self.shape.elasticity = 1
-        # self.shape.filter = pymunk.ShapeFilter(group=group)
-        # self.shape.collision_type = 3
-        # SPACE.add(self.body, self.shape)
-
-    def set_shape(self):
-        return pymunk.Segment(self.body, self.start, self.end, 5)
-
-    def update(self):
-        self.start = flip(self.x1, self.y1)
-        self.end = flip(self.x2, self.y2)
-
-    def draw(self, s):
-        pygame.draw.line(s, self.color, start_pos=self.start, end_pos=self.end, radius=5)
 
 
 def collide(arbiter, space, data):
@@ -270,9 +249,7 @@ class Block(BodySprite):
     def set_shape(self):
         return pymunk.Poly.create_box(self.body, self.size)
 
-    def tagged(self, arbiter, space, data):
-        print('hi!')
-        return True
+
 
 class Triangle(BodySprite):
     def __init__(self, x, y, l, body_type=pymunk.Body.DYNAMIC, category=0, mask=0):
@@ -316,6 +293,20 @@ class Segment(BodySprite):
                          (self.x, self.y), pymunk.Vec2d(self.x, self.y) + self.v,
                          self.r)
 
+
+class LoadingPlatform(Segment):
+    def __init__(self, p0, v,  collision_type=0, category=0, mask=0):
+        super().__init__(p0, v, collision_type=collision_type,
+                         category=category, mask=mask, body_type=pymunk.Body.STATIC)
+        self.met = False
+
+    def tagged(self, arbiter, space, data):
+        print('hi!')
+        self.met = True
+        return True
+    def separated(self, arbiter, space, data):
+        self.met = False
+        return True
 
 class Bracket:
     def __init__(self, p, v1, v2, r, m=10):
@@ -382,6 +373,8 @@ clicked = pygame.sprite.GroupSingle()
 temp_joint = None
 picking = False
 
+won = pygame.event.custom_type()
+
 class Level:
     def __init__(self, number: int, weights: list, level_type):
         self.number = number
@@ -405,6 +398,9 @@ class App:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return
+                if event.type == won:
+                    print('YAY')
+                    return
 
                 # if event == pygame.MOUSEBUTTONUP:
                 #     picking = False
@@ -427,6 +423,15 @@ class App:
                     clicked.sprite.body.position = pygame.mouse.get_pos()
                 else:
                     clicked.sprite.body.body_type = pymunk.Body.DYNAMIC
+
+            got_all = True
+            for i in plat_list:
+                if not i.met:
+                    got_all = False
+                    break
+            if got_all:
+                pygame.event.post(pygame.event.Event(won))
+            print(got_all)
 
             bodies.update()
             joints.update()
@@ -468,24 +473,27 @@ if __name__ == '__main__':
     # baskets
     num = len(level_weights)
     l = W/2/num
+
+    plat_list = []
     for i in range(num):
-        Segment((W/2 + i *l, H - i * l), (l, 0), body_type=pymunk.Body.STATIC,
+        plat = LoadingPlatform((W/2 + i *l, H - i * l), (l, 0),
                 category=16, mask=7, collision_type=10+num+i)
+        plat_list.append(plat)
         # when exactly one block is touching it,
 
     # block
     # i left like 10 collision types available
     blocks = pygame.sprite.Group()
-    blocks_list = []
+
     for i in range(num):
         b = Block(50 + i * 50, 50, m=level_weights[i], clickable=True,
                          category=4, mask=22, collision_type=10+i)
         blocks.add(b)
-        blocks_list.append(b)
 
     handlers = [SPACE.add_collision_handler(10+num+i, 10+i) for i in range(num)]
     for i, handler in enumerate(handlers):
-        handler.begin = blocks_list[i].tagged
+        handler.begin = plat_list[i].tagged
+        handler.separate = plat_list[i].separated
 
     Seesaw((100, 350), (200, 0), (100, 0))
 
