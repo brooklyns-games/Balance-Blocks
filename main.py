@@ -1,0 +1,446 @@
+import random
+import pygame
+import pymunk
+# print(pymunk.pygame_util)
+from pymunk import Vec2d
+from pymunk.pygame_util import DrawOptions
+
+"""Started June 14 2025
+from Pymunk Basics by Ear of Corn Programming
+https://youtube.com/playlist?list=PL_N_kL9gRTm8lh7GxFHh3ym1RXi6I6c50&si=IqN679o1NsVTzN6q
+
+"""
+
+
+W, H = 400, 400
+SPACE = pymunk.Space()
+SPACE.gravity = (0, 1000)
+
+
+def clear_surface(h, w, fill=None):
+    if fill is None:
+        return pygame.Surface((h, w), pygame.SRCALPHA)
+    else:
+        s = pygame.Surface((h, w))
+        s.fill(fill)
+        return s
+
+
+def flip(x, y, null=False, return_as=tuple):
+    if not null:
+        return return_as((x, H - y))
+    else:
+        return return_as((x, y))
+
+
+def new_body_at(x=0, y=0, m=0, body_type=pymunk.Body.DYNAMIC, collision_type=0):
+    b = pymunk.Body(m, body_type)
+    b.position = flip(x, y)
+
+    return b
+
+
+bodies = pygame.sprite.Group()
+joints = pygame.sprite.Group()
+
+
+def transform(x, y, vertices):
+    # Transform the vertices to world coordinates
+    transformed_vertices = []
+    for v in vertices:
+        # print(v)
+        # print(pymunk.Vec2d(x, y), pymunk.Vec2d(*v))
+        tv = v + pymunk.Vec2d(x, y)
+        # print(tv)
+        transformed_vertices.append(tv)
+    return transformed_vertices
+
+
+def get_rect(shape):
+    # from https://www.google.com/search?q=pymunk+get+rect+from+shape&rlz=1C5CHFA_enUS954US954&oq=pymunk+get+rect+from+shape&gs_lcrp=EgZjaHJvbWUyBggAEEUYOTIHCAEQIRigATIHCAIQIRigATIHCAMQIRigATIHCAQQIRiPAtIBCDQwMDJqMGo3qAIAsAIA&sourceid=chrome&ie=UTF-8
+    body = shape.body
+
+    if isinstance(shape, pymunk.Poly):
+        vertices = shape.get_vertices()
+    elif isinstance(shape, pymunk.Circle):
+        r = shape.radius
+        vertices = [(-r, r), (r, r), (-r, -r), (r, -r)]
+    elif isinstance(shape, pymunk.Segment):
+        vertices = [shape.a, shape.b]
+    else:
+        return None  # Handle other shape types if needed
+    # print(body.position)
+    transformed_vertices = transform(*body.position, vertices)
+
+    # Calculate the bounding box
+    min_x = min(v.x for v in transformed_vertices)
+    max_x = max(v.x for v in transformed_vertices)
+    min_y = min(v.y for v in transformed_vertices)
+    max_y = max(v.y for v in transformed_vertices)
+
+    return pygame.Rect(min_x, min_y, max_x - min_x, max_y - min_y)
+
+
+class BodySprite(pygame.sprite.Sprite):
+    body_num = 0
+
+    def __init__(self, x, y, mass=0, collision_type=0, color=(255, 0, 0, 255), body_type=pymunk.Body.DYNAMIC):
+        super().__init__(bodies)
+        self.color = color
+
+        self.m = mass
+        self.body = pymunk.Body(self.m, body_type=body_type, moment=0)
+        self.body.position = self.x, self.y = x, y
+
+        self.shape = self.set_shape()  # pymunk.Poly(self.body, [(-1, 1), (1, 1), (1, -1), (-1, -1)])
+        self.shape.density = 1
+        self.shape.collision_type = collision_type
+
+        self.rect = pygame.Rect(self.x, self.y, self.m * 10, self.m * 10)
+
+        # BodySprite.body_num += 1
+        # self.shape.collision_type = collision_type  # BodySprite.body_num
+
+    def set_shape(self):
+        return pymunk.Circle(self.body, 10)
+
+    def update(self):
+        self.x, self.y = self.body.position
+        # print(self.shape)
+        # print(get_rect(self.shape))
+        self.rect.update(*get_rect(self.shape))
+
+    def draw(self, s):
+        pygame.draw.rect(s, self.color, get_rect(self.shape))
+        # pygame.draw.polygon(s, self.color, transform(self.x, self.y, self.shape.get_vertices()))
+
+
+class Ball(BodySprite):
+    def __init__(self, x, y, r, collision_type=0, group=0, color=(255, 0, 0)):
+        self.radius = r
+        super().__init__(x, y, 5, collision_type, color=color)
+        # self.body.velocity = random.uniform(-500, 500), random.uniform(-500, 500)
+
+        self.h, self.w = self.radius * 2, self.radius * 2
+
+        self.shape.elasticity = 1
+
+        self.shape.filter = pymunk.ShapeFilter(group=group)
+
+    def set_shape(self):
+        return pymunk.Circle(self.body, self.radius)
+
+    def draw(self, s):
+        pygame.draw.circle(s, self.color, (self.x, self.y), self.radius)
+
+
+class Box:
+    def __init__(self, p0=(0, 0), p1=(W, H), d=4, color=(255, 0, 0)):
+        # super().__init__(*p0, color=color, body_type=pymunk.Body.STATIC)
+        x0, y0 = p0
+        x1, y1 = p1
+        vs = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+        for i in range(4):
+            seg = pymunk.Segment(
+                SPACE.static_body, vs[i], vs[(i + 1) % 4], d)
+            seg.elasticity = 1
+            seg.friction = 0.5
+            # seg.color = color
+            SPACE.add(seg)
+
+
+class Chassis(BodySprite):
+    def __init__(self, x, y, vs):
+        self.vertices = vs
+        super().__init__(x, y, 10, )
+        self.shape.filter = pymunk.ShapeFilter(group=1)
+
+        # v0, v1, v2, v3 = self.vertices
+
+        # self.shape = p
+        # self.shape.density = 1
+
+    def set_shape(self):
+        return pymunk.Poly(self.body, self.vertices)
+
+    # def draw(self, s):
+    #     pygame.draw.polygon(s, self.color, self.vertices)
+
+
+class Wheel(BodySprite):
+    def __init__(self, x, y, r, chassis, a, group=1, speed=5):
+        self.r = r
+        super().__init__(x, y, 5)
+        self.shape.filter = pymunk.ShapeFilter(group=group)
+
+        self.joint = pymunk.PivotJoint(chassis.body, self.body, a, (0, 0))
+        self.joint.collide_bodies = True
+
+        self.motor = pymunk.SimpleMotor(chassis.body, self.body, speed)
+        SPACE.add(self.joint, self.motor)
+
+    def set_shape(self):
+        return pymunk.Circle(self.body, self.r)
+
+    def draw(self, s):
+        pygame.draw.circle(s, self.color, self.body.position, self.r, 5)
+
+
+class Platform(BodySprite):
+    def __init__(self, x1, y1, x2, y2, color=(0, 0, 0), group=0):
+        self.x1, self.y1 = self.start = x1, y1
+        self.x2, self.y2 = self.end = x2, y2
+
+        super().__init__(x1, y1, color=color, body_type=pymunk.Body.STATIC)
+        # print(self.body)
+
+        self.shape.elasticity = 1
+        # self.shape.filter = pymunk.ShapeFilter(group=group)
+        # self.shape.collision_type = 3
+        # SPACE.add(self.body, self.shape)
+
+    def set_shape(self):
+        return pymunk.Segment(self.body, self.start, self.end, 5)
+
+    def update(self):
+        self.start = flip(self.x1, self.y1)
+        self.end = flip(self.x2, self.y2)
+
+    def draw(self, s):
+        pygame.draw.line(s, self.color, start_pos=self.start, end_pos=self.end, radius=5)
+
+
+def collide(arbiter, space, data):
+    print('hello')
+    return True
+
+
+class Rope(pygame.sprite.Sprite):
+    def __init__(self, body, attachment):
+        super().__init__(joints)
+        self.body1 = body
+        if isinstance(attachment, pymunk.Body):
+            self.body2 = attachment
+
+        elif isinstance(attachment, tuple):
+            self.body2 = pymunk.Body(body_type=pymunk.Body.STATIC)
+            self.body2.position = flip(*attachment)
+        self.joint = pymunk.PinJoint(self.body1, self.body2)
+        # SPACE.add(self.joint)
+
+        self.start = self.body1.position
+        self.end = self.body2.position
+
+    def update(self):
+        self.start = self.body1.position
+        self.end = self.body2.position
+
+    def draw(self, s):
+        pygame.draw.line(s, (0, 0, 0), self.start, self.end, 3)
+
+
+class Block(BodySprite):
+    def __init__(self, x, y, size=(40, 40), m=10, color=(255, 0, 0)):
+        self.size = self.w, self.h = size
+        super().__init__(x, y, m, color=color)
+        self.shape.elasticity = 0
+        self.shape.friction = 0.5
+
+    def set_shape(self):
+        return pymunk.Poly.create_box(self.body, self.size)
+
+
+# print('yeet')
+class Segment(BodySprite):
+    def __init__(self, p0, v, r=10, color=(255, 0, 0), m=20):
+        self.v = v
+        self.r = r
+
+        # mid = p0 + v * 0.5
+        super().__init__(*p0, mass=m, body_type=pymunk.Body.DYNAMIC, color=color)
+        # self.body.position = p0  # Set the body's position to the start point
+        self.shape.elasticity = 0.5
+        # self.shape.filter = pymunk.ShapeFilter(group=1)
+
+    def set_shape(self):
+        # Always create the segment from (0, 0) to self.v in local coordinates
+        return pymunk.Segment(self.body, (0, 0), self.v, self.r)
+
+    def draw(self, s):
+        pygame.draw.line(s, self.color,
+                         (self.x, self.y), pymunk.Vec2d(self.x, self.y) + self.v,
+                         self.r)
+
+
+class Bracket:
+    def __init__(self, p, v1, v2, r, m=10):
+        self.p = self.x, self.y = p
+        self.v1 = v1
+        self.v2 = v2
+        self.r = r
+        self.body = pymunk.Body(m)
+        self.body.position = self.p
+
+        self.s1 = pymunk.Segment(self.body, (0, 0), self.v1, self.r)
+        self.s2 = pymunk.Segment(self.body, (0, 0), self.v2, self.r)
+        self.s1.density = 1
+        self.s2.density = 1
+        SPACE.add(self.body, self.s1, self.s2)
+
+        # super().__init__(*p)
+
+
+class PivotJoint:
+    def __init__(self, b, b2, a=(0, 0), a2=(0, 0), collide=False):
+        self.joint = pymunk.PivotJoint(b, b2, a, a2)
+        self.joint.collide_bodies = collide
+
+        SPACE.add(self.joint)
+
+
+class PinJoint:
+    def __init__(self, b, b2, a=(0, 0), a2=(0, 0), collide=False):
+        self.joint = pymunk.PinJoint(b, b2, a, a2)
+        self.joint.collide_bodies = collide
+        SPACE.add(self.joint)
+
+
+clickables = pygame.sprite.Group()
+
+temp_joint = None
+picking = False
+
+
+class App:
+    def __init__(self):
+        pygame.init()
+
+        self.display = pygame.display.set_mode((W, H))
+        self.clock = pygame.time.Clock()
+        self.draw_options = DrawOptions(self.display)
+
+        self.running = True
+
+    def run(self):
+        global temp_joint, picking
+        while True:
+            left_click = pygame.mouse.get_pressed()[0]
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return
+
+                # if event == pygame.MOUSEBUTTONUP:
+                #     picking = False
+                #     print('up')
+                # if isinstance(temp_joint, PivotJoint):
+                #     SPACE.remove(temp_joint.joint)
+
+                # print('yeet')
+            for sprite in clickables:
+                # todo make sprite group for clickables
+                if left_click:
+                    if sprite.rect.collidepoint(pygame.mouse.get_pos()):
+                        picking = True
+                        # print("!!!!!")
+                        sprite.body.body_type = pymunk.Body.STATIC
+                        sprite.m = 0
+                        sprite.body.position = pygame.mouse.get_pos()
+                        # if block1.shape in SPACE.shapes:
+                        #     SPACE.remove(block1.body, block1.shape)
+
+                        # b = new_body_at(*pygame.mouse.get_pos(), body_type=pymunk.Body.DYNAMIC)
+                        # if temp_joint is None:
+                        # temp_joint = PivotJoint(b, block1.body, pygame.mouse.get_pos())
+                        # temp_joint.joint.collide_bodies = False
+                    else:
+                        picking = True
+                else:
+                    picking = False
+                    sprite.body.body_type = pymunk.Body.DYNAMIC
+                    sprite.body.m = 10
+                    # if block1.shape not in SPACE.shapes:
+                    #     SPACE.add(block1.body, block1.shape)
+                    # block1.body.moment = 0
+                print(sprite.body.position)
+            # print(pygame.mouse.get_pos(), picking)
+
+            bodies.update()
+            joints.update()
+
+            self.draw()
+
+            self.clock.tick(60)
+            SPACE.step(1 / 60)
+
+    def draw(self):
+        # images, blitting
+        self.display.fill('gray')
+        SPACE.debug_draw(DrawOptions(self.display))
+
+        # global picking
+        # i
+        # for body in bodies:
+        #     # print(body)
+        #     body.draw(DISPLAY)
+        # for joint in joints:
+        #     # print(joint)
+        #     joint.draw(DISPLAY)
+
+        pygame.display.update()
+
+        text = f'fpg: {self.clock.get_fps():.1f}'
+        pygame.display.set_caption(text)
+
+
+if __name__ == '__main__':
+
+    # Box((0, 0), (W, H))
+    # ball1 = Ball(W / 2, H, 5)
+
+    b0 = SPACE.static_body
+    p = Vec2d(100, 50)
+    v = Vec2d(200, 0)
+    segment = Segment(p, v)
+
+    mid_local = 0.5 * v
+    mid_world = p + mid_local  # Attach only at the middle
+    PivotJoint(b0, segment.body, mid_world, mid_local, collide=False)
+
+    # brackets
+    bv1 = Vec2d(50, 0)
+    bv2 = Vec2d(0, 50)
+    bracket1 = Bracket(p, bv1, bv2, 5)
+    PinJoint(segment.body, bracket1.body, (0, 0))
+    bracket2 = Bracket((p + tuple(v)), bv1, bv2, 5)
+    PinJoint(segment.body, bracket2.body, v)
+
+    # carriers
+    v2 = Vec2d(100, 0)
+    carrier1 = Segment(p, v2, 5)
+    PinJoint(carrier1.body, bracket1.body, (0, 0), bv1)
+    PinJoint(carrier1.body, bracket1.body, v2, bv2)
+
+    carrier2 = Segment(p + v, v2, 5, )
+    PinJoint(carrier2.body, bracket2.body, (0, 0), bv1)
+    PinJoint(carrier2.body, bracket2.body, v2, bv2)
+
+    # floor = Platform(0, 100, W, 100, 'red')
+    # s = Segment((200, 100), (100, 0), color='green')
+    # print(s)
+
+    # # double pendulum--working
+    # ball1 = Ball(300, 300, 10, color=(255, 0, 0))
+    # ball2 = Ball(200, 150, 10, color=(0, 255, 0), group=1)
+    # rope1 = Rope(ball1.body, (300, 550))
+    # rope2 = Rope(ball1.body, ball2.body)
+
+    # # Add all bodies and joints from the sprite groups to the space ONCE before the simulation loop
+    for sprite in bodies:
+        SPACE.add(sprite.body, sprite.shape)
+    for sprite in joints:
+        SPACE.add(sprite.joint)
+
+    App().run()
+
+    print(SPACE.shapes)  # Should show a list of shapes
+pygame.quit()
