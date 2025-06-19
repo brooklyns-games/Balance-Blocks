@@ -270,6 +270,10 @@ class Block(BodySprite):
     def set_shape(self):
         return pymunk.Poly.create_box(self.body, self.size)
 
+    def tagged(self, arbiter, space, data):
+        print('hi!')
+        return True
+
 class Triangle(BodySprite):
     def __init__(self, x, y, l, body_type=pymunk.Body.DYNAMIC, category=0, mask=0):
         self.l = l
@@ -330,7 +334,6 @@ class Bracket:
 
         # super().__init__(*p)
 
-
 class Seesaw:
     def __init__(self, center, beam_length: Vec2d, carrier_length):
         b0 = SPACE.static_body
@@ -352,6 +355,7 @@ class Seesaw:
         PivotJoint(self.carrier2.body, self.beam.body, v2 * 0.5, v)
 
         fulcrum = Triangle(*mid_world, 50, pymunk.Body.STATIC, category=8, mask=1)
+
 
 class PivotJoint:
     def __init__(self, b, b2, a=(0, 0), a2=(0, 0), collide=False):
@@ -459,18 +463,29 @@ if __name__ == '__main__':
 
     # todo make group for box #2
     # ball1 = Ball(100, 0, 5)
-    level_weights = [10, 50, 40, ]
+    level_weights = [10, 50, 40, 50]
 
-    #staircase
+    # baskets
     num = len(level_weights)
     l = W/2/num
     for i in range(num):
-        Segment((W/2 + i *l, H - i * l), (l, 0), body_type=pymunk.Body.STATIC, category=16, mask=7)
-        # when exactly one block is touching it
+        Segment((W/2 + i *l, H - i * l), (l, 0), body_type=pymunk.Body.STATIC,
+                category=16, mask=7, collision_type=10+num+i)
+        # when exactly one block is touching it,
+
     # block
+    # i left like 10 collision types available
     blocks = pygame.sprite.Group()
+    blocks_list = []
     for i in range(num):
-        Block(i * 50, 50, m=level_weights[i], clickable=True, category=4, mask=22)
+        b = Block(50 + i * 50, 50, m=level_weights[i], clickable=True,
+                         category=4, mask=22, collision_type=10+i)
+        blocks.add(b)
+        blocks_list.append(b)
+
+    handlers = [SPACE.add_collision_handler(10+num+i, 10+i) for i in range(num)]
+    for i, handler in enumerate(handlers):
+        handler.begin = blocks_list[i].tagged
 
     Seesaw((100, 350), (200, 0), (100, 0))
 
