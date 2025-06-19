@@ -332,9 +332,26 @@ class Bracket:
 
 
 class Seesaw:
-    def __init__(self, center, ):
-        pass
-        # self.beam =
+    def __init__(self, center, beam_length: Vec2d, carrier_length):
+        b0 = SPACE.static_body
+
+        p = Vec2d(*center)
+        v = Vec2d(*beam_length)
+        v2 = Vec2d(*carrier_length)
+
+        self.beam = Segment(p, v, category=1, mask=16)
+        mid_local = 0.5 * v
+        mid_world = p + mid_local  # Attach only at the middle
+        PivotJoint(b0, self.beam.body, mid_world, mid_local, collide=False)
+
+        # carriers
+        self.carrier1 = Segment(p - v2 * 0.5, v2, m=100, damp=True, category=2, mask=20)
+        PivotJoint(self.carrier1.body, self.beam.body, v2 * 0.5, (0, 0))
+
+        self.carrier2 = Segment(p + v - v2 * 0.5, v2, m=100, damp=True, category=2, mask=20)
+        PivotJoint(self.carrier2.body, self.beam.body, v2 * 0.5, v)
+
+        fulcrum = Triangle(*mid_world, 50, pymunk.Body.STATIC, category=8, mask=1)
 
 class PivotJoint:
     def __init__(self, b, b2, a=(0, 0), a2=(0, 0), collide=False):
@@ -450,31 +467,13 @@ if __name__ == '__main__':
     for i in range(num):
         Segment((W/2 + i *l, H - i * l), (l, 0), body_type=pymunk.Body.STATIC, category=16, mask=7)
         # when exactly one block is touching it
-
-
-    b0 = SPACE.static_body
-    p = Vec2d(100, 350)
-    v = Vec2d(200, 0)
-    beam = Segment(p, v, category=1, mask=16)
-
-    mid_local = 0.5 * v
-    mid_world = p + mid_local  # Attach only at the middle
-    PivotJoint(b0, beam.body, mid_world, mid_local, collide=False)
-
     # block
     blocks = pygame.sprite.Group()
     for i in range(num):
         Block(i * 50, 50, m=level_weights[i], clickable=True, category=4, mask=22)
 
-    # carriers
-    v2 = Vec2d(100, 0)
-    carrier1 = Segment(p - v2 * 0.5, v2, m=100, damp=True, category=2, mask=20)
-    PivotJoint(carrier1.body, beam.body, v2 * 0.5, (0, 0))
+    Seesaw((100, 350), (200, 0), (100, 0))
 
-    carrier2 = Segment(p + v - v2 * 0.5, v2, m=100, damp=True, category=2, mask=20)
-    PivotJoint(carrier2.body, beam.body, v2 * 0.5, v)
-
-    fulcrum = Triangle(200, 350, 50, pymunk.Body.STATIC, category=8, mask=1)
 
     # # Add all bodies and joints from the sprite groups to the space ONCE before the simulation loop
     for sprite in bodies:
