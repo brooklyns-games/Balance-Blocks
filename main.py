@@ -245,6 +245,7 @@ class Block(BodySprite):
 
         self.shape.elasticity = 0
         self.shape.friction = 0.5
+        print('new block')
 
     def set_shape(self):
         return pymunk.Poly.create_box(self.body, self.size)
@@ -375,10 +376,44 @@ picking = False
 
 won = pygame.event.custom_type()
 
+level_types = ['sort', 'total', 'balance', 'find']
+
 class Level:
-    def __init__(self, number: int, weights: list, level_type):
+    def __init__(self, number: int, weights: list, level_type='sort'):
         self.number = number
-        self.weight = weights
+        self.weights = weights
+
+        self.plats = []
+        self.blocks = []
+
+    def run(self):
+        for sprite in bodies:
+            SPACE.add(sprite.body, sprite.shape)
+        for sprite in joints:
+            SPACE.add(sprite.joint)
+
+    def setup(self):
+        # baskets
+        num = len(self.weights)
+        l = W / 2 / num
+
+        # plat_list = []
+        for i in range(num):
+            plat = LoadingPlatform((W / 2 + i * l, H - i * l), (l, 0),
+                                   category=16, mask=7, collision_type=10 + num + i)
+            self.plats.append(plat)
+
+        # Create blocks
+        for i in range(num):
+            b = Block(50 + i * 50, 50, m=self.weights[i], clickable=True,
+                      category=4, mask=22, collision_type=10 + i)
+            self.blocks.append(b)
+
+        handlers = [SPACE.add_collision_handler(10 + num + i, 10 + i) for i in range(num)]
+        for i, handler in enumerate(handlers):
+            handler.begin = self.plats[i].tagged
+            handler.separate = self.plats[i].separated
+
 
 class App:
     def __init__(self):
@@ -390,9 +425,18 @@ class App:
 
         self.running = True
 
+        self.level = Level
+
     def run(self):
         global temp_joint, picking
+        self.level = level1
+        self.level.setup()
+        self.level.run()
         while True:
+            """
+            events:
+            new level/change level
+            """
             left_click = pygame.mouse.get_pressed()[0]
             # print('left_click', left_click)
             for event in pygame.event.get():
@@ -402,19 +446,19 @@ class App:
                     print('YAY')
                     return
 
-                # if event == pygame.MOUSEBUTTONUP:
-                #     picking = False
-                #     print('up')
+                """
+                create new body centered at mouse position
+                Set pivot joint there, attached to that body and the clickable block
+                """
                 # if isinstance(temp_joint, PivotJoint):
                 #     SPACE.remove(temp_joint.joint)
 
+            # clicking--make its own method
             for i in clickables:
-                # todo make sprite group for clickables
                 if left_click:
                     if i.rect.collidepoint(pygame.mouse.get_pos()):
                         picking = True
                         clicked.add(i)
-                        # print("!!!!!")
                 else:
                     picking = False
             if len(clicked) > 0:
@@ -425,13 +469,13 @@ class App:
                     clicked.sprite.body.body_type = pymunk.Body.DYNAMIC
 
             got_all = True
-            for i in plat_list:
+            for i in self.level.plats:
                 if not i.met:
                     got_all = False
                     break
             if got_all:
                 pygame.event.post(pygame.event.Event(won))
-            print(got_all)
+            # print(got_all)
 
             bodies.update()
             joints.update()
@@ -466,43 +510,33 @@ if __name__ == '__main__':
     Box((0, 0), (W / 2, H), category=16, mask=7)
     Box((W/2, 0), (W, H), category=16, mask=7)
 
+    Seesaw((100, 350), (200, 0), (100, 0))
+
     # todo make group for box #2
     # ball1 = Ball(100, 0, 5)
-    level_weights = [10, 50, 40, 50]
-
-    # baskets
-    num = len(level_weights)
-    l = W/2/num
-
-    plat_list = []
-    for i in range(num):
-        plat = LoadingPlatform((W/2 + i *l, H - i * l), (l, 0),
-                category=16, mask=7, collision_type=10+num+i)
-        plat_list.append(plat)
-        # when exactly one block is touching it,
+    level1 = Level(1, [10, 50, 40, 50])
 
     # block
     # i left like 10 collision types available
-    blocks = pygame.sprite.Group()
+    # blocks = pygame.sprite.Group()
 
-    for i in range(num):
-        b = Block(50 + i * 50, 50, m=level_weights[i], clickable=True,
-                         category=4, mask=22, collision_type=10+i)
-        blocks.add(b)
+    """
+    # block
+        # i left like 10 collision types available
+        blocks = pygame.sprite.Group()
 
-    handlers = [SPACE.add_collision_handler(10+num+i, 10+i) for i in range(num)]
-    for i, handler in enumerate(handlers):
-        handler.begin = plat_list[i].tagged
-        handler.separate = plat_list[i].separated
-
-    Seesaw((100, 350), (200, 0), (100, 0))
-
+        for i in range(num):
+            b = Block(50 + i * 50, 50, m=self.weights[i], clickable=True,
+                      category=4, mask=22, collision_type=10 + i)
+            blocks.add(b)
+    """
+    # for i in range(4):
+    #     b = Block(50 + i * 50, 50, m=[10, 50, 40, 50][i], clickable=True,
+    #               category=4, mask=22, collision_type=10 + i)
+        # blocks.add(b)
 
     # # Add all bodies and joints from the sprite groups to the space ONCE before the simulation loop
-    for sprite in bodies:
-        SPACE.add(sprite.body, sprite.shape)
-    for sprite in joints:
-        SPACE.add(sprite.joint)
+
 
     App().run()
 
