@@ -5,6 +5,8 @@ import pymunk
 from pymunk import Vec2d
 from pymunk.pygame_util import DrawOptions
 
+import time
+
 """Started June 14 2025
 from Pymunk Basics by Ear of Corn Programming
 https://youtube.com/playlist?list=PL_N_kL9gRTm8lh7GxFHh3ym1RXi6I6c50&si=IqN679o1NsVTzN6q
@@ -166,41 +168,7 @@ class Box:
             SPACE.add(seg)
 
 
-class Chassis(BodySprite):
-    def __init__(self, x, y, vs):
-        self.vertices = vs
-        super().__init__(x, y, 10, )
-        self.shape.filter = pymunk.ShapeFilter(group=1)
 
-        # v0, v1, v2, v3 = self.vertices
-
-        # self.shape = p
-        # self.shape.density = 1
-
-    def set_shape(self):
-        return pymunk.Poly(self.body, self.vertices)
-
-    # def draw(self, s):
-    #     pygame.draw.polygon(s, self.color, self.vertices)
-
-
-class Wheel(BodySprite):
-    def __init__(self, x, y, r, chassis, a, group=1, speed=5):
-        self.r = r
-        super().__init__(x, y, 5)
-        self.shape.filter = pymunk.ShapeFilter(group=group)
-
-        self.joint = pymunk.PivotJoint(chassis.body, self.body, a, (0, 0))
-        self.joint.collide_bodies = True
-
-        self.motor = pymunk.SimpleMotor(chassis.body, self.body, speed)
-        SPACE.add(self.joint, self.motor)
-
-    def set_shape(self):
-        return pymunk.Circle(self.body, self.r)
-
-    def draw(self, s):
-        pygame.draw.circle(s, self.color, self.body.position, self.r, 5)
 
 
 
@@ -309,22 +277,6 @@ class LoadingPlatform(Segment):
         self.met = False
         return True
 
-class Bracket:
-    def __init__(self, p, v1, v2, r, m=10):
-        self.p = self.x, self.y = p
-        self.v1 = v1
-        self.v2 = v2
-        self.r = r
-        self.body = pymunk.Body(m)
-        self.body.position = self.p
-
-        self.s1 = pymunk.Segment(self.body, (0, 0), self.v1, self.r)
-        self.s2 = pymunk.Segment(self.body, (0, 0), self.v2, self.r)
-        self.s1.density = 1
-        self.s2.density = 1
-        SPACE.add(self.body, self.s1, self.s2)
-
-        # super().__init__(*p)
 
 class Seesaw:
     def __init__(self, center, beam_length: Vec2d, carrier_length):
@@ -349,24 +301,27 @@ class Seesaw:
         fulcrum = Triangle(*mid_world, 50, pymunk.Body.STATIC, category=8, mask=1)
 
 
-class PivotJoint:
+class PivotJoint(pygame.sprite.Sprite):
     def __init__(self, b, b2, a=(0, 0), a2=(0, 0), collide=False):
+
         self.joint = pymunk.PivotJoint(b, b2, a, a2)
         self.joint.collide_bodies = collide
+        super().__init__(joints)
 
-        SPACE.add(self.joint)
 
-
-class PinJoint:
+class PinJoint(pygame.sprite.Sprite):
     def __init__(self, b, b2, a=(0, 0), a2=(0, 0), collide=False):
         self.joint = pymunk.PinJoint(b, b2, a, a2)
         self.joint.collide_bodies = collide
-        SPACE.add(self.joint)
+        # SPACE.add(self.joint)
+        super().__init__(joints)
+
 
 class DampedRotarySpring:
     def __init__(self, a, b, angle, stiffness, damping):
         self.joint = pymunk.DampedRotarySpring(a, b, angle, stiffness, damping)
         SPACE.add(self.joint)
+
 
 clickables = pygame.sprite.Group()
 clicked = pygame.sprite.GroupSingle()
@@ -375,6 +330,7 @@ temp_joint = None
 picking = False
 
 won = pygame.event.custom_type()
+new_level = pygame.event.custom_type()
 
 level_types = ['sort', 'total', 'balance', 'find']
 
@@ -387,12 +343,29 @@ class Level:
         self.blocks = []
 
     def run(self):
+        # Clear sprite groups to remove previous level's objects
+        # bodies.empty()
+        # joints.empty()
+        # clickables.empty()
+        
+        # Add only the current level's objects to SPACE
         for sprite in bodies:
             SPACE.add(sprite.body, sprite.shape)
         for sprite in joints:
             SPACE.add(sprite.joint)
 
+    @staticmethod
+    def base():
+        # todo make group for regular level stuff--the box, floor, etc
+        Box((0, 0), (W / 2, H), category=16, mask=7)
+        Box((W / 2, 0), (W, H), category=16, mask=7)
+
+        Seesaw((100, 350), (200, 0), (100, 0))
+
+        # todo make group for box #2
+
     def setup(self):
+        self.base()
         # baskets
         num = len(self.weights)
         l = W / 2 / num
@@ -402,12 +375,16 @@ class Level:
             plat = LoadingPlatform((W / 2 + i * l, H - i * l), (l, 0),
                                    category=16, mask=7, collision_type=10 + num + i)
             self.plats.append(plat)
+            # Add platform to SPACE
+            # SPACE.add(plat.body, plat.shape)
 
         # Create blocks
         for i in range(num):
             b = Block(50 + i * 50, 50, m=self.weights[i], clickable=True,
                       category=4, mask=22, collision_type=10 + i)
             self.blocks.append(b)
+            # Add block to SPACE
+            # SPACE.add(b.body, b.shape)
 
         handlers = [SPACE.add_collision_handler(10 + num + i, 10 + i) for i in range(num)]
         for i, handler in enumerate(handlers):
@@ -425,26 +402,48 @@ class App:
 
         self.running = True
 
-        self.level = Level
+        self.level_num = -1
+        self.level = None
 
     def run(self):
         global temp_joint, picking
-        self.level = level1
-        self.level.setup()
-        self.level.run()
+
+        pygame.event.post(pygame.event.Event(new_level))
+
         while True:
             """
             events:
             new level/change level
             """
             left_click = pygame.mouse.get_pressed()[0]
+
             # print('left_click', left_click)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return
+
+                if event.type == new_level:
+                    time.sleep(2)
+                    self.level_num += 1
+                    self.level = LEVELS[self.level_num]
+
+                    self.level.setup()
+                    self.level.run()
+
                 if event.type == won:
                     print('YAY')
-                    return
+                    for shape in list(SPACE.shapes):
+                        SPACE.remove(shape)
+                    for body in list(SPACE.bodies):
+                        SPACE.remove(body)
+                    for constraint in list(SPACE.constraints):
+                        SPACE.remove(constraint)
+                    bodies.empty()
+                    joints.empty()
+
+                    pygame.event.post(pygame.event.Event(new_level))
+
+                    # return
 
                 """
                 create new body centered at mouse position
@@ -507,18 +506,16 @@ class App:
 
 if __name__ == '__main__':
 
-    Box((0, 0), (W / 2, H), category=16, mask=7)
-    Box((W/2, 0), (W, H), category=16, mask=7)
 
-    Seesaw((100, 350), (200, 0), (100, 0))
-
-    # todo make group for box #2
     # ball1 = Ball(100, 0, 5)
-    level1 = Level(1, [10, 50, 40, 50])
+    level_weights = [
+        [10, 10],  # todo allow same weight to mean same collision type
+        [10, 50, 40, 50],
+        [20, 20, 40]
 
-    # block
-    # i left like 10 collision types available
-    # blocks = pygame.sprite.Group()
+    ]
+    LEVELS = [Level(i, weights) for i, weights in enumerate(level_weights)]
+
 
     """
     # block

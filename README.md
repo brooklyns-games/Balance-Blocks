@@ -5,3 +5,4 @@ Todo:
 - Make collision groups: carriers and blocks can collide
 - Find consistent method for handling the stupid pymunk flipped coordinates system
 - make sprite groups for collisions/filtering
+- Add a button to check--you get 3 tries
