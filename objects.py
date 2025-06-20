@@ -178,7 +178,8 @@ class Segment(BodySprite):
     def update(self):
         BodySprite.update(self)
         if self.damp:
-            self.body.angular_velocity *= 0.1
+            self.body.angle = 0
+            # self.body.angular_velocity *= 0.1
         # self.body.moment = self.moment
 
     def draw(self, s):

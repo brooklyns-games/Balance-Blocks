@@ -55,16 +55,35 @@ def new_body_at(x=0, y=0, m=0, body_type=pymunk.Body.DYNAMIC, collision_type=0):
 
     return b
 
-
-class Text:
-    def __init__(self, string, x, y, size, color=(0, 0, 0), font=None,):
+texts = pygame.sprite.Group()
+class Text(pygame.sprite.Sprite):
+    def __init__(self, string, x, y, size, color=(0, 0, 0), font=None, time_limit=0, fade=0):
+        super().__init__(texts)
         self.string = string
-        self.color = color
+        self.color = pygame.Color(color)
         self.font = pygame.font.SysFont(font, size)
-        self.text = self.font.render(self.string, True, self.color)
+        self.text = None
 
-    def draw(self, s):
-        s.blit(self.text, self.text.get_rect())
+        self.time_limit = time_limit
+        self.t1 = time.time()
+        self.t2 = None
+        self.fade = fade
+
+        self.update()
+        self.size = self.text.get_size()
+        self.image = clear_surface(*self.size)
+        self.rect = pygame.Rect(x, y, *self.size)
+
+    def update(self):
+        if time.time() >= self.t1 + self.time_limit:
+            self.t2 = time.time()
+            self.color.a += self.fade
+            if self.color.a >= 255:
+                # pass
+                self.kill()
+        self.text = self.font.render(self.string, True, self.color)
+    def draw(self):
+        self.image.blit(self.text, self.text.get_rect())
 
 buttons = pygame.sprite.Group()
 class Button(pygame.sprite.Sprite):
@@ -74,7 +93,8 @@ class Button(pygame.sprite.Sprite):
         self.y = int(y)
         self.string = text
         self.text = Text(text, x, y, 40, color)
-        self.image = clear_surface(*self.text.text.get_size())
+        self.size = self.text.text.get_size()
+        self.image = clear_surface(*self.size)
         self.rect = self.text.text.get_rect()
         # print(self.rect)
         self.color = color
@@ -90,13 +110,14 @@ class Button(pygame.sprite.Sprite):
             self.color = 'black'
         if clicked.has(self):
             self.color = 'red'
+        # self.text.update()
 
         self.rect.update(self.x, self.y, *self.text.text.get_size())
         # self.draw(self.display)
     def draw(self):
         pygame.draw.rect(self.image, self.color, self.text.text.get_rect(), 5)
         self.text = Text(self.string, self.x, self.y, 40, self.color)
-        self.text.draw(self.image)
+        self.text.draw()
 
 
 
@@ -108,6 +129,7 @@ picking = False
 won = pygame.event.custom_type()
 new_level = pygame.event.custom_type()
 check = pygame.event.custom_type()
+wrong = pygame.event.custom_type()
 
 level_types = ['sort', 'total', 'balance', 'find']
 
@@ -124,8 +146,8 @@ class Level:
         # Add only the current level's objects to SPACE
         for sprite in bodies:
             SPACE.add(sprite.body, sprite.shape)
-        for sprite in joints:
-            SPACE.add(sprite.joint)
+        # for sprite in joints:
+        #     SPACE.add(sprite.joint)
 
     @staticmethod
     def base():
@@ -151,8 +173,8 @@ class Level:
             self.plats.append(plat)
 
         # Create blocks
-        coords = list(set((10 + i * (W / 2 - 20) / num, 50) for i in range(num))) # somehow randomize?
-        print(coords)
+        coords = [(10 + i * (W / 2 - 20) / num, 50) for i in range(num)] # somehow randomize?
+        random.shuffle(coords)
         for i in range(num):
             b = Block(*coords[i], m=self.weights[i], clickable=True,
                       category=4, mask=22, collision_type=10 + i)
@@ -219,6 +241,8 @@ class App:
                 break
         if got_all:
             pygame.event.post(pygame.event.Event(won))
+        else:
+            pygame.event.post(pygame.event.Event(wrong))
         # print(got_all)
 
     def handle_events(self, event: pygame.event.Event):
@@ -242,6 +266,9 @@ class App:
         if event.type == check:
             print('click!')
             self.check_won()
+        if event.type == wrong:
+            print('wrong!')
+            Text("Wrong!", 50, 200, 40, time_limit=1000, fade=1)
         if event.type == pygame.MOUSEBUTTONUP:
             if clicked.sprite == button1:
                 pygame.event.post(pygame.event.Event(check))
@@ -258,7 +285,6 @@ class App:
                 self.handle_events(event)
 
             self.handle_clicking()
-            print(clicked)
 
             """
             create new body centered at mouse position
@@ -269,7 +295,7 @@ class App:
             buttons.update()
 
             bodies.update()
-            joints.update()
+            # joints.update()
 
             self.draw()
 
@@ -288,11 +314,12 @@ class App:
         #     # print(joint)
         #     joint.draw(DISPLAY)
         level_display = Text('Level ' + str(self.level_num + 1), 0, 0, 40)
-        level_display.draw(self.display)
+        level_display.draw()
 
         for button in buttons:
             button.draw()
         buttons.draw(self.display)
+        texts.draw(self.display)
 
 
         pygame.display.update()

@@ -3,21 +3,19 @@ import pymunk
 
 from global_vars import *
 
-class PivotJoint(pygame.sprite.Sprite):
+class PivotJoint:
     def __init__(self, b, b2, a=(0, 0), a2=(0, 0), collide=False):
 
         self.joint = pymunk.PivotJoint(b, b2, a, a2)
         self.joint.collide_bodies = collide
-        super().__init__(joints)
+        SPACE.add(self.joint)
 
 
-class PinJoint(pygame.sprite.Sprite):
+class PinJoint:
     def __init__(self, b, b2, a=(0, 0), a2=(0, 0), collide=False):
         self.joint = pymunk.PinJoint(b, b2, a, a2)
         self.joint.collide_bodies = collide
-        # SPACE.add(self.joint)
-        super().__init__(joints)
-
+        SPACE.add(self.joint)
 
 
 class DampedRotarySpring:
