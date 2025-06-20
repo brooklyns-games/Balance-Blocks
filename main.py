@@ -142,6 +142,10 @@ class Level:
         self.plats = []
         self.blocks = []
 
+        self.guesses = 0
+        self.wrongs = 0
+        self.wrong_limit = 3
+
     def run(self):
         # Add only the current level's objects to SPACE
         for sprite in bodies:
@@ -266,9 +270,16 @@ class App:
         if event.type == check:
             print('click!')
             self.check_won()
+            self.level.guesses += 1
         if event.type == wrong:
-            print('wrong!')
             Text("Wrong!", 50, 200, 40, time_limit=1000, fade=1)
+            self.level.wrongs += 1
+            print('wrong! {}/{}'.format(self.level.wrongs, self.level.wrong_limit))
+            if self.level.wrongs >= self.level.wrong_limit:
+                print('you failed!')
+                pygame.event.post(pygame.event.Event(pygame.QUIT))
+
+
         if event.type == pygame.MOUSEBUTTONUP:
             if clicked.sprite == button1:
                 pygame.event.post(pygame.event.Event(check))
@@ -321,11 +332,11 @@ class App:
         buttons.draw(self.display)
         texts.draw(self.display)
 
-
         pygame.display.update()
 
         text = f'fpg: {self.clock.get_fps():.1f}'
         pygame.display.set_caption(text)
+
 
 def clear(space):
     # todo find better way to clear objects in SPACE
@@ -336,13 +347,14 @@ def clear(space):
     for constraint in list(space.constraints):
         space.remove(constraint)
     bodies.empty()
-    joints.empty()
+    # joints.empty()
 
 
 if __name__ == '__main__':
     # ball1 = Ball(100, 0, 5) # test ball
     level_weights = [
         [10, 10],  # todo allow same weight to mean same collision type
+        [10, 30, 60],
         [10, 50, 40, 50],
         [20, 20, 40]
 

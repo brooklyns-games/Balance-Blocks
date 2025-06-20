@@ -1,3 +1,10 @@
+"""Balance Blocks
+A logic-based puzzle game
+You are given blocks of identical volume
+And you have to rank their masses
+You can use the set of scales to find the relative mass
+
+"""
 import pygame
 import pymunk
 
@@ -138,7 +145,7 @@ class Block(BodySprite):
                          collision_type=collision_type, category=category, mask=mask, body_type=body_type)
 
         self.shape.elasticity = 0
-        self.shape.friction = 0.5
+        self.shape.friction = 10
 
     def set_shape(self):
         return pymunk.Poly.create_box(self.body, self.size)
@@ -179,7 +186,7 @@ class Segment(BodySprite):
         BodySprite.update(self)
         if self.damp:
             self.body.angle = 0
-            # self.body.angular_velocity *= 0.1
+            self.body.angular_velocity *= 0.1
         # self.body.moment = self.moment
 
     def draw(self, s):
