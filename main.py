@@ -7,8 +7,8 @@ import pymunk
 from pymunk.pygame_util import DrawOptions
 
 import time
-
-from global_vars import *
+import global_vars
+from global_vars import clear_surface
 from objects import *
 
 pygame.font.init()
@@ -20,15 +20,9 @@ https://youtube.com/playlist?list=PL_N_kL9gRTm8lh7GxFHh3ym1RXi6I6c50&si=IqN679o1
 """
 
 
+collision_types = {}
 
 
-def clear_surface(w, h, fill=None):
-    if fill is None:
-        return pygame.Surface((w, h), pygame.SRCALPHA)
-    else:
-        s = pygame.Surface((w, h))
-        s.fill(fill)
-        return s
 
 # def limit_velocity(body, gravity, damping, dt):
 #     """
@@ -43,6 +37,7 @@ def clear_surface(w, h, fill=None):
 #     # pymunk.Body.update_velocity()
 
 def flip(x, y, null=False, return_as=tuple):
+    """Pymunk's y coords start at bottom and not top of window"""
     if not null:
         return return_as((x, H - y))
     else:
@@ -120,7 +115,6 @@ class Button(pygame.sprite.Sprite):
         self.text.draw()
 
 
-
 clicked = pygame.sprite.GroupSingle()
 
 temp_joint = None
@@ -138,9 +132,11 @@ class Level:
         """Manages level information and controls when to add level objects"""
         self.number = number
         self.weights = weights
+        self.level_type = level_type
 
         self.plats = []
-        self.blocks = []
+        # self.blocks = []
+        self.seesaw = None
 
         self.guesses = 0
         self.wrongs = 0
@@ -153,42 +149,57 @@ class Level:
         # for sprite in joints:
         #     SPACE.add(sprite.joint)
 
-    @staticmethod
-    def base():
+    # @staticmethod
+    def base(self):
         # todo do you really want to add this every time?
         # todo make group for regular level stuff--the box, floor, etc
         Box((0, 0), (W / 2, H), category=16, mask=7)
         Box((W / 2, 0), (W, H), category=16, mask=7)
 
-        Seesaw((100, 350), (200, 0), (100, 0))
+        self.seesaw = Seesaw((100, 350), (200, 0), (100, 0))
 
         # todo make group for box #2
 
     def setup(self):
         self.base()
         # baskets
-        num = len(self.weights)
-        l = W / 2 / num
+        total_blocks = len(self.weights)
+        l = W / 2 / total_blocks
 
         # Create loading platforms
-        for i in range(num):
+        for i in range(total_blocks):
             plat = LoadingPlatform((W / 2 + i * l, H - i * l), (l, 0),
-                                   category=16, mask=7, collision_type=10 + num + i)
+                                   category=16, mask=7, collision_type=10 + total_blocks + i)
             self.plats.append(plat)
 
         # Create blocks
-        coords = [(10 + i * (W / 2 - 20) / num, 50) for i in range(num)] # somehow randomize?
+        global_vars.blocks.empty()
+        coords = [(10 + i * (W / 2 - 20) / total_blocks, 50) for i in range(total_blocks)] # somehow randomize?
         random.shuffle(coords)
-        for i in range(num):
+        for i in range(total_blocks):
             b = Block(*coords[i], m=self.weights[i], clickable=True,
                       category=4, mask=22, collision_type=10 + i)
-            # random.choice
-            self.blocks.append(b)
+            global_vars.blocks.add(b)
+        print(global_vars.blocks)
 
-        handlers = [SPACE.add_collision_handler(10 + num + i, 10 + i) for i in range(num)]
+        # make handlers between each platform and block
+        # matches up platform with corresponding block
+        handlers = [SPACE.add_collision_handler(10 + total_blocks + i, 10 + i) for i in range(total_blocks)]
         for i, handler in enumerate(handlers):
             handler.begin = self.plats[i].tagged
             handler.separate = self.plats[i].separated
+        # handlers.clear()
+
+        # handlers2 = []
+        # for j in range(len(Deck.decks)):
+        #     print(j)
+        #     handlers2 = [SPACE.add_collision_handler(10 + i, j)
+        #              for i in range(total_blocks)]
+        #     for i, handler in enumerate(handlers2):
+        #         handler.begin = Deck.decks[j].touching
+        #         handler.separate = Deck.decks[j].separated
+
+        print(list(global_vars.bodies))
 
 
 class App:
@@ -201,7 +212,7 @@ class App:
 
         self.running = True
 
-        self.level_num = -1
+        # self.level_num = -1
         self.level = None
 
 
@@ -229,7 +240,7 @@ class App:
                     clicked.sprite.body.body_type = pymunk.Body.KINEMATIC
                     clicked.sprite.body.position = pygame.mouse.get_pos()
                 if not picking:
-                    print('not picking')
+                    # print('not picking')
                     clicked.sprite.body.body_type = pymunk.Body.DYNAMIC
         if not picking:
             clicked.empty()
@@ -255,10 +266,11 @@ class App:
 
         if event.type == new_level:
             # time.sleep(1)
-            self.level_num += 1
-            if self.level_num > len(LEVELS):
+            global_vars.level_num += 1
+            if global_vars.level_num > len(LEVELS):
                 print("There aren't enough levels.")
-            self.level = LEVELS[self.level_num]
+            self.level = LEVELS[global_vars.level_num]
+            global_vars.LEVEL = self.level
 
             self.level.setup()
             self.level.run()
@@ -279,12 +291,9 @@ class App:
                 print('you failed!')
                 pygame.event.post(pygame.event.Event(pygame.QUIT))
 
-
         if event.type == pygame.MOUSEBUTTONUP:
             if clicked.sprite == button1:
                 pygame.event.post(pygame.event.Event(check))
-
-
 
     def run(self):
         global temp_joint
@@ -303,6 +312,7 @@ class App:
             """
             # if isinstance(temp_joint, PivotJoint):
             #     SPACE.remove(temp_joint.joint)
+            self.level.seesaw.update()
             buttons.update()
 
             bodies.update()
@@ -318,13 +328,14 @@ class App:
         self.display.fill('gray')
         SPACE.debug_draw(DrawOptions(self.display))
 
+        # global_vars.blocks.draw(self.display)
         # for body in bodies:
         #     # print(body)
         #     body.draw(DISPLAY)
         # for joint in joints:
         #     # print(joint)
         #     joint.draw(DISPLAY)
-        level_display = Text('Level ' + str(self.level_num + 1), 0, 0, 40)
+        level_display = Text('Level ' + str(global_vars.level_num + 1), 0, 0, 40)
         level_display.draw()
 
         for button in buttons:
@@ -352,16 +363,10 @@ def clear(space):
 
 if __name__ == '__main__':
     # ball1 = Ball(100, 0, 5) # test ball
-    level_weights = [
-        [10, 10],  # todo allow same weight to mean same collision type
-        [10, 30, 60],
-        [10, 50, 40, 50],
-        [20, 20, 40]
 
-    ]
-    LEVELS = [Level(i, weights) for i, weights in enumerate(level_weights)]
     button1 = Button(W/2, 0, 'Check', (0, 0, 0))
 
+    LEVELS = [Level(i, weights) for i, weights in enumerate(global_vars.level_weights)]
     App().run()
 
     # print(SPACE.shapes)  # Should show a list of shapes

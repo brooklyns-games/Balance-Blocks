@@ -12,7 +12,8 @@ from pymunk import Vec2d
 
 from abc import ABC, abstractmethod
 
-from global_vars import *
+import global_vars
+from global_vars import clear_surface
 from constraints import *
 
 def transform(x, y, vertices):
@@ -50,9 +51,10 @@ def get_rect(shape):
 
     return pygame.Rect(min_x, min_y, max_x - min_x, max_y - min_y)
 
-clickables = pygame.sprite.Group()
+clickables = pygame.sprite.Group() # sprites that can be interacted with by mouse
 
 class BodySprite(pygame.sprite.Sprite, ABC):
+    siblings = pygame.sprite.Group()
     def __init__(self, x, y, mass=0, collision_type=0, category=0, mask=100, color=(255, 0, 0, 255),
                  body_type=pymunk.Body.DYNAMIC, clickable: bool=False):
         """
@@ -62,7 +64,7 @@ class BodySprite(pygame.sprite.Sprite, ABC):
         :param color: Not implemented, go away
         :param clickable: able to be clicked, dragged, and dropped by mouse
         """
-        super().__init__(bodies)
+        super().__init__(global_vars.bodies, self.__class__.siblings)
         if clickable:
             self.add(clickables)
 
@@ -80,17 +82,25 @@ class BodySprite(pygame.sprite.Sprite, ABC):
         self.shape.filter = pymunk.ShapeFilter(categories=category, mask=mask)
 
         self.rect = pygame.Rect(self.x, self.y, self.m * 10, self.m * 10)
+        self.image = clear_surface(*self.rect.size)
+
+        self.update()
+
+    def rect_update(self):
+        self.rect.update(*get_rect(self.shape))
+        return self.rect
 
     @abstractmethod
     def set_shape(self):
         return pymunk.Circle(self.body, 10)
 
-    def update(self):
+    def update(self):  # find way to put this in all children's update methods
         self.x, self.y = self.body.position
-        self.rect.update(*get_rect(self.shape))
+        self.rect_update()
+        self.image = clear_surface(*self.rect.size)
 
     def draw(self, s):
-        pygame.draw.rect(s, self.color, get_rect(self.shape))
+        pygame.draw.rect(s, self.color, self.rect_update())
 
 
 class Ball(BodySprite):
@@ -115,7 +125,7 @@ class Ball(BodySprite):
 class Box:
     def __init__(self, p0=(0, 0), p1=(W, H), d=4, color=(255, 0, 0), category=0, mask=0):
         """
-        Makes an empty box with four walls, can be used to restrict objects
+        Makes an empty box with four walls, used to keep objects inside window
         *Does not add to bodies sprite group
         :param p0: top left corner
         :param p1: bottom right corner
@@ -140,16 +150,22 @@ class Box:
 class Block(BodySprite):
     def __init__(self, x, y, size=(40, 40), m=10, color=(255, 0, 0), clickable=False,
                  collision_type=0, category=0, mask=0, body_type=pymunk.Body.DYNAMIC):
+        """
+        A square or rectangle that can be dragged around, etc
+        """
         self.size = self.w, self.h = size
         super().__init__(x, y, m, color=color, clickable=clickable,
                          collision_type=collision_type, category=category, mask=mask, body_type=body_type)
+        self.add(global_vars.blocks)
 
         self.shape.elasticity = 0
         self.shape.friction = 10
 
     def set_shape(self):
         return pymunk.Poly.create_box(self.body, self.size)
-
+    # def update(self):
+    #     super().update()
+        # print(self.rect)
 
 class Triangle(BodySprite):
     def __init__(self, x, y, l, body_type=pymunk.Body.DYNAMIC, category=0, mask=0):
@@ -183,7 +199,7 @@ class Segment(BodySprite):
             return pymunk.Segment(self.body, -0.5 * self.v, 0.5 * self.v, self.r)
 
     def update(self):
-        BodySprite.update(self)
+        super().update()
         if self.damp:
             self.body.angle = 0
             self.body.angular_velocity *= 0.1
@@ -219,21 +235,57 @@ class Seesaw:
         v = Vec2d(*beam_length)
         v2 = Vec2d(*carrier_length)
 
-        self.beam = Segment(p, v, category=1, mask=16)
+        self.beam = Segment(p, v, category=1, mask=16, body_type=pymunk.Body.KINEMATIC)
         mid_local = 0.5 * v
         mid_world = p + mid_local  # Attach only at the middle
-        PivotJoint(b0, self.beam.body, mid_world, mid_local, collide=False)
+        # PivotJoint(b0, self.beam.body, mid_world, mid_local, collide=False)
 
         # carriers
-        self.carrier1 = Segment(p - v2 * 0.5, v2, m=100, damp=True, category=2, mask=20)
+        self.carrier1 = Deck(p - v2 * 0.5, v2)
         PivotJoint(self.carrier1.body, self.beam.body, v2 * 0.5, (0, 0))
 
-        self.carrier2 = Segment(p + v - v2 * 0.5, v2, m=100, damp=True, category=2, mask=20)
-        PivotJoint(self.carrier2.body, self.beam.body, v2 * 0.5, v)
-
+        # self.carrier2 = Deck(p + v - v2 * 0.5, v2)
+        # PivotJoint(self.carrier2.body, self.beam.body, v2 * 0.5, v)
+        #
         self.fulcrum = Triangle(*mid_world, 50, pymunk.Body.STATIC, category=8, mask=1)
 
 
         # j1 = pymunk.SlideJoint(self.carrier1.body, b0, (0, 0), (50, 400), 0, 100)
         # j2 = pymunk.SlideJoint(self.carrier1.body, b0, v2, (100, 400), 0, 100)
         # SPACE.add(j1)
+    def update(self):
+        pass
+        # does not update, need to be child of BodySprite. oh well
+        # print(pygame.sprite.spritecollideany(self.carrier1, global_vars.blocks))
+
+class Deck(Segment, pygame.sprite.Sprite):
+    decks = []
+    def __init__(self, p0, v):
+        self.loaded = 0
+        super().__init__(p0, v, m=100, damp=True, category=2, mask=20, collision_type=len(Deck.decks))
+        Deck.decks.append(self)
+
+
+    def touching(self, arbiter, space, data):
+        # self.loaded.add(sprite)
+        self.loaded += 1
+        print('touching', pygame.sprite.spritecollideany(self, global_vars.blocks))
+        return True
+    def separated(self, arbiter, space, data):
+        # self.loaded.remove(sprite)
+        self.loaded -= 1
+        print('separated')
+        return True
+    def update(self):
+        super().update()
+        for b in global_vars.blocks:
+            print('\t', self.shape.shapes_collide(b.shape))
+        # print(self, self.loaded)
+        # print(self.rect)
+    #     # print(global_vars.level_num)
+
+    #     print(pygame.sprite.spritecollideany(self, global_vars.blocks))
+        if pygame.sprite.spritecollideany(self, global_vars.blocks):
+    #         # pass
+            print('hi')
+
