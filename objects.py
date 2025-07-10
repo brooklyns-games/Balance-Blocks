@@ -252,11 +252,9 @@ class Seesaw:
         self.fulcrum = Triangle(*mid_world, 50, pymunk.Body.STATIC, category=8, mask=1)
 
 
-        # j1 = pymunk.SlideJoint(self.carrier1.body, b0, (0, 0), (50, 400), 0, 100)
-        # j2 = pymunk.SlideJoint(self.carrier1.body, b0, v2, (100, 400), 0, 100)
-        # SPACE.add(j1)
     def update(self):
-        pass
+        if self.carrier1.load and self.carrier2.load:
+            print(self.carrier1.load.sprite.m, self.carrier2.load.sprite.m, self.carrier1.load.sprite.m > self.carrier2.load.sprite.m,)
         # does not update, need to be child of BodySprite. oh well
         # print(pygame.sprite.spritecollideany(self.carrier1, global_vars.blocks))
 
@@ -282,9 +280,10 @@ class Deck(Segment, pygame.sprite.Sprite):
         # print(self.loaded)
         if len(self.loaded) == 1:
             self.load.add(*self.loaded)
+            # print(self.load.sprite.m)
         else:
             self.load.empty()
-        print(self.load)
+
 
 
         # print(self, self.loaded)
