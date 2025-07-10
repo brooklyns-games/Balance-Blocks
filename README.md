@@ -1,7 +1,7 @@
 Todo:
 - Seesaw detects greater than, less than, and equal to 
-  - decks each detect if a block is touching it
-  - if only one block is touching each of the decks
+  - v decks each detect if a block is touching it
+  - v if only one block is touching each of the decks
     - compare
     - move seesaw beam to accord
 - Pivot joint on mouse as it picks up block

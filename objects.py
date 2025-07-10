@@ -263,14 +263,30 @@ class Seesaw:
 class Deck(Segment, pygame.sprite.Sprite):
     decks = []
     def __init__(self, p0, v):
-        self.loaded = 0
+        self.loaded = []
+        self.load = pygame.sprite.GroupSingle()
         super().__init__(p0, v, m=100, damp=True, category=2, mask=20, collision_type=len(Deck.decks))
         Deck.decks.append(self)
 
     def update(self):
         super().update()
         for b in global_vars.blocks:
-            print('\t', bool(self.shape.shapes_collide(b.shape).points), b)
+            touching = bool(self.shape.shapes_collide(b.shape).points)
+            # print('\t', touching, b)
+            if touching:
+                if b not in self.loaded:
+                    self.loaded.append(b)
+            else:
+                if b in self.loaded:
+                    self.loaded.remove(b)
+        # print(self.loaded)
+        if len(self.loaded) == 1:
+            self.load.add(*self.loaded)
+        else:
+            self.load.empty()
+        print(self.load)
+
+
         # print(self, self.loaded)
         # print(self.rect)
     #     # print(global_vars.level_num)
