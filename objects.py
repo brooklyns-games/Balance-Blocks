@@ -77,6 +77,7 @@ class BodySprite(pygame.sprite.Sprite, ABC):
         self.shape = self.set_shape()  # pymunk.Poly(self.body, [(-1, 1), (1, 1), (1, -1), (-1, -1)])
         self.shape.density = 1
         self.shape.friction = 1
+        self.shape.collision_slop = 0
 
         self.shape.collision_type = collision_type
         self.shape.filter = pymunk.ShapeFilter(categories=category, mask=mask)
@@ -235,18 +236,19 @@ class Seesaw:
         v = Vec2d(*beam_length)
         v2 = Vec2d(*carrier_length)
 
-        self.beam = Segment(p, v, category=1, mask=16, body_type=pymunk.Body.KINEMATIC)
+        self.beam = Segment(p, v, category=1, mask=16) # body_type=pymunk.Body.KINEMATIC)
+        self.beam.shape.damping = 0.9
         mid_local = 0.5 * v
         mid_world = p + mid_local  # Attach only at the middle
-        # PivotJoint(b0, self.beam.body, mid_world, mid_local, collide=False)
+        PivotJoint(b0, self.beam.body, mid_world, mid_local, collide=False)
 
         # carriers
         self.carrier1 = Deck(p - v2 * 0.5, v2)
         PivotJoint(self.carrier1.body, self.beam.body, v2 * 0.5, (0, 0))
 
-        # self.carrier2 = Deck(p + v - v2 * 0.5, v2)
-        # PivotJoint(self.carrier2.body, self.beam.body, v2 * 0.5, v)
-        #
+        self.carrier2 = Deck(p + v - v2 * 0.5, v2)
+        PivotJoint(self.carrier2.body, self.beam.body, v2 * 0.5, v)
+
         self.fulcrum = Triangle(*mid_world, 50, pymunk.Body.STATIC, category=8, mask=1)
 
 
@@ -265,26 +267,14 @@ class Deck(Segment, pygame.sprite.Sprite):
         super().__init__(p0, v, m=100, damp=True, category=2, mask=20, collision_type=len(Deck.decks))
         Deck.decks.append(self)
 
-
-    def touching(self, arbiter, space, data):
-        # self.loaded.add(sprite)
-        self.loaded += 1
-        print('touching', pygame.sprite.spritecollideany(self, global_vars.blocks))
-        return True
-    def separated(self, arbiter, space, data):
-        # self.loaded.remove(sprite)
-        self.loaded -= 1
-        print('separated')
-        return True
     def update(self):
         super().update()
         for b in global_vars.blocks:
-            print('\t', self.shape.shapes_collide(b.shape))
+            print('\t', bool(self.shape.shapes_collide(b.shape).points), b)
         # print(self, self.loaded)
         # print(self.rect)
     #     # print(global_vars.level_num)
 
-    #     print(pygame.sprite.spritecollideany(self, global_vars.blocks))
         if pygame.sprite.spritecollideany(self, global_vars.blocks):
     #         # pass
             print('hi')
