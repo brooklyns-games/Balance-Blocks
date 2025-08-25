@@ -18,7 +18,7 @@ level_weights = [
     ]
 
 
-level_num = -1
+level_num = -1  # default is -1
 LEVEL = None
 
 def clear_surface(w, h, fill=None):
@@ -28,3 +28,20 @@ def clear_surface(w, h, fill=None):
         s = pygame.Surface((w, h))
         s.fill(fill)
         return s
+
+
+def clear():
+    # todo find better way to clear objects in SPACE
+    global SPACE
+    SPACE = pymunk.Space()
+    # for shape in list(space.shapes):
+    #     space.remove(shape)
+    # for body in list(space.bodies):
+    #     space.remove(body)
+    # for constraint in list(space.constraints):
+    #     space.remove(constraint)
+
+    bodies.empty()
+    # joints.empty()
+
+clicked = pygame.sprite.GroupSingle()
