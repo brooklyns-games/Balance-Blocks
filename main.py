@@ -127,7 +127,9 @@ class App:
         got_all = True
         if not isinstance(self.level, Level):
             return
+        print(self.level.loading_platforms)
         for i in self.level.loading_platforms:
+            print(i.met)
             if not i.met:
                 got_all = False
                 break
@@ -207,6 +209,7 @@ class App:
             # self.level.sprite_objects.update()
             Button.buttons.update()
             Text.texts.update()
+            print(list(i.met for i in self.level.loading_platforms))
             # print(Text.texts)
 
             bodies.update()

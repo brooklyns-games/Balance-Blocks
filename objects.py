@@ -227,11 +227,12 @@ class LoadingPlatform(Segment):
         self.met = False
 
     def tagged(self, arbiter, space, data):
-        # print('hi!')
+        print('hi!')
         self.met = True
         return True
 
     def separated(self, arbiter, space, data):
+        print('bye!')
         self.met = False
         return True
 

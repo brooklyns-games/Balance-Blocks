@@ -117,40 +117,55 @@ class Level:
         l = W / 2 / total_blocks
 
         # Create loading platforms
-        for i in range(total_blocks):
-            plat = LoadingPlatform((W / 2 + i * l, H - i * l), (l, 0),
-                                   category=16, mask=7, collision_type=10 + total_blocks + i)
-            self.loading_platforms.append(plat)
+        # for i in range(total_blocks):
 
         # Create blocks
         global_vars.blocks.empty()
         coords = [(10 + i * (W / 2 - 20) / total_blocks, 50) for i in range(total_blocks)] # somehow randomize?
         random.shuffle(coords)
+
+        unique_weights = list(set(self.weights))
+        weight_to_collision = {w: 10 + i for i, w in enumerate(unique_weights)}
+
+        handlers = []
         for i in range(total_blocks):
-            b = Block(*coords[i], m=self.weights[i], clickable=True,
-                      category=4, mask=22, collision_type=10 + i)
+            weight = self.weights[i]
+            block_handler = weight_to_collision[weight]
+            platform_handler = weight_to_collision[weight]  #  + len(unique_weights)
+            print(block_handler, platform_handler)
+
+            b = Block(*coords[i], m=weight, clickable=True,
+                      category=4, mask=22, collision_type=block_handler)
+
+
+            plat = LoadingPlatform((W / 2 + i * l, H - i * l), (l, 0),
+                                   category=16, mask=7,
+                                   collision_type=platform_handler,)
+            self.loading_platforms.append(plat)
             global_vars.blocks.add(b)
             self.blocks.append(b)  # to keep everything in order
 
+            handler = SPACE.add_collision_handler(block_handler, platform_handler)
+            handler.begin = self.loading_platforms[i].tagged
+            handler.separate = self.loading_platforms[i].separated
+            handlers.append(handler)
+        print(len(handlers))
         # self.sprite_objects.add(*self.loading_platforms, *self.blocks)
         # print(global_vars.blocks)
 
         # make handlers between each platform and block
         # matches up platform with corresponding block
         # todo equal weights should mean equal collision types
-        handlers = [SPACE.add_collision_handler(10 + total_blocks + i, 10 + i) for i in range(total_blocks)]
-        for i, handler in enumerate(handlers):
-            handler.begin = self.loading_platforms[i].tagged
-            handler.separate = self.loading_platforms[i].separated
-        # handlers.clear()
+        # handlers = [SPACE.add_collision_handler(10 + len(unique_weights) + i, 10 + i) for i in range(total_blocks)]
 
-        handlers2 = []
-        for i in range(total_blocks):
-            # print(j)
-            handlers2 = [SPACE.add_collision_handler(10 + i, j)
-                     for j in range(len(Deck.decks))]
-            for x, handler in enumerate(handlers2):
-                handler.begin = self.blocks[i].touching
+
+        # handlers2 = []
+        # for i in range(total_blocks):
+        #     # print(j)
+        #     handlers2 = [SPACE.add_collision_handler(10 + i, j)
+        #              for j in range(len(Deck.decks))]
+        #     for x, handler in enumerate(handlers2):
+        #         handler.begin = self.blocks[i].touching
                 # handler.separate = blocks[i].separated
 
         # print(list(global_vars.bodies))
