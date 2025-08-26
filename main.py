@@ -65,9 +65,7 @@ won = pygame.event.custom_type()
 new_level = pygame.event.custom_type()
 check = pygame.event.custom_type()
 wrong = pygame.event.custom_type()
-start = pygame.event.custom_type()
-
-
+restart_level = pygame.event.custom_type()
 
 
 class App:
@@ -96,6 +94,8 @@ class App:
     @staticmethod
     def handle_clicking():
         global picking, check_button
+        print('\tclicked', clicked)
+
         left_click = pygame.mouse.get_pressed()[0]
         for i in clickables:
             if left_click:
@@ -127,9 +127,7 @@ class App:
         got_all = True
         if not isinstance(self.level, Level):
             return
-        print(self.level.loading_platforms)
         for i in self.level.loading_platforms:
-            print(i.met)
             if not i.met:
                 got_all = False
                 break
@@ -142,36 +140,31 @@ class App:
     def handle_events(self, event: pygame.event.Event):
         if event.type == pygame.QUIT:
             self.running = False
-        if event.type == start:
-            global_vars.level_num = -1
-            pygame.event.post(pygame.event.Event(new_level))
+            return
+        if event.type == restart_level:
+            self.level_display.set_string('Level ' + str(global_vars.level_num + 1))
+            self.level.setup()
+            self.level.run()
         if event.type == new_level:
-            # print('new level!')
-            # time.sleep(1)
             if self.level:  # get rid of last level
                 self.level.end()
             global_vars.level_num += 1
             if global_vars.level_num > len(LEVELS):
                 print("There aren't enough levels.")
-            self.level = LEVELS[global_vars.level_num]
-            self.level_display.set_string('Level ' + str(global_vars.level_num + 1))
-            global_vars.LEVEL = self.level
 
-            self.level.setup()
-            self.level.run()
+            self.level = LEVELS[global_vars.level_num]
+            pygame.event.post(pygame.event.Event(restart_level))
 
         if event.type == won:
             print('you won this level')
-            clear()
+            # clear()
             pygame.event.post(pygame.event.Event(new_level))
         if event.type == check:
             print('click!')
             self.check_won()
             self.level.guesses += 1
-
-
         if event.type == wrong:
-            Text("Wrong!", 50, 200, 40, time_limit=1, fade=100).draw(self.display)
+            Text("Wrong!", 50, 200, 40, time_limit=1, fade=10).draw(self.display)
             self.level.wrongs += 1
             print('wrong! {}/{}'.format(self.level.wrongs, self.level.wrong_limit))
             if self.level.wrongs >= self.level.wrong_limit:
@@ -182,24 +175,22 @@ class App:
             if clicked.sprite == check_button:
                 pygame.event.post(pygame.event.Event(check))
 
-    # @staticmethod
-    def base(self):
-        # todo do you really want to add this every time?
-        # todo make group for regular level stuff--the box, floor, etc
+    @staticmethod
+    def base():
 
-        Box((0, 0), (W / 2, H), category=16, mask=7)
-        Box((W / 2, 0), (W, H), category=16, mask=7)
+        b = Box((0, 0), (W, H), category=16, mask=7)
+        # self.basics.add(b)
+        # Box((W / 2, 0), (W, H), category=16, mask=7)
 
-        Seesaw((100, 350), (200, 0), (100, 0))
+        Seesaw((100, 350), (200, 0), (100, 0), )
+        # print('base done')
 
         # todo make group for box #2
 
     def run(self):
         global temp_joint
-
         pygame.event.post(pygame.event.Event(new_level))
         self.base()
-
         while self.running:
             for event in pygame.event.get():
                 self.handle_events(event)
@@ -209,46 +200,44 @@ class App:
             # self.level.sprite_objects.update()
             Button.buttons.update()
             Text.texts.update()
-            print(list(i.met for i in self.level.loading_platforms))
-            # print(Text.texts)
 
-            bodies.update()
+            # print('updating bodies')
+            # for sprite in BODIES:
+            #     print(sprite.body.position, sprite.body, sprite)
+                # if sprite.body.mass == float('inf'):
+                #     continue
+                #     # raise Exception('infinite mass detected')
+                # sprite.body.position = float_to_int(sprite.body.position)
+            # for body in SPACE.bodies:
+            #     print(body.position, body)
+
+            BODIES.update()
+
             # joints.update()
 
             self.draw()
+            pygame.display.update()
 
-            self.clock.tick(60)
-            SPACE.step(1 / 60)
+            text = f'fpg: {self.clock.get_fps():.1f}'
+            pygame.display.set_caption(text)
+
+            self.clock.tick(FPS)
+            SPACE.step(1 / FPS)
 
     def draw(self):
-        # images, blitting
+        # print('drawing')
         self.display.fill('gray')
+        # print(SPACE.bodies)
         SPACE.debug_draw(DrawOptions(self.display))
-
-
 
         for button in Button.buttons:
             button.draw()
         Button.buttons.draw(self.display)
         Text.texts.draw(self.display)
-        # for text in Text.texts:
-        #     text.draw()
         self.level_display.draw(self.display)
-
-
-        pygame.display.update()
-
-        text = f'fpg: {self.clock.get_fps():.1f}'
-        pygame.display.set_caption(text)
-
-
-
-
 
 if __name__ == '__main__':
     # ball1 = Ball(100, 0, 5) # test ball
-
-
     LEVELS = [Level(i, weights) for i, weights in enumerate(global_vars.level_weights)]
     App().run()
 

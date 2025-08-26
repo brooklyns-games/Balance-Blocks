@@ -1,13 +1,18 @@
 import pymunk
 import pygame
 
+
+FPS = 60  # frames per second
 W, H = 800, 400
 SPACE = pymunk.Space()
-SPACE.gravity = (0, 2000)
+SPACE.gravity = (0, 1000)
 
-bodies = pygame.sprite.Group()
+b0 = SPACE.static_body
+BODIES = pygame.sprite.Group()
 # joints = pygame.sprite.Group()
-blocks = pygame.sprite.Group()
+BLOCKS = pygame.sprite.Group()
+
+
 
 level_weights = [
         [10, 10],  # todo allow same weight to mean same collision type
@@ -19,7 +24,7 @@ level_weights = [
 
 
 level_num = -1  # default is -1
-LEVEL = None
+# LEVEL = None
 
 def clear_surface(w, h, fill=None):
     if fill is None:
@@ -41,7 +46,10 @@ def clear():
     # for constraint in list(space.constraints):
     #     space.remove(constraint)
 
-    bodies.empty()
+    BODIES.empty()
     # joints.empty()
+
+def float_to_int(floats):
+    return tuple(int(f) for f in floats)
 
 clicked = pygame.sprite.GroupSingle()
