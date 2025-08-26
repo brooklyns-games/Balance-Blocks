@@ -86,7 +86,7 @@ class BodySprite(pygame.sprite.Sprite, ABC):
 
 
         SPACE.add(self.body, self.shape)
-        print('added', self.body, self.shape)
+        # print('added', self.body, self.shape)
         self.update()
 
     @staticmethod
@@ -114,8 +114,8 @@ class BodySprite(pygame.sprite.Sprite, ABC):
         # print('updating', self.body, self.body.position, self.shape)
         self.x, self.y = self.body.position
         self.rect_update()
-        print('updating', self.body, self.body.position, self.shape)
-        assert self.body.mass > 0, "Mass must be positive and non-zero"
+        # print('updating', self.body, self.body.position, self.shape)
+        # assert self.body.mass > 0, "Mass must be positive and non-zero"
         # self.image = clear_surface(*self.rect.size)
 
     def draw(self, s):
@@ -175,7 +175,7 @@ class Block(BodySprite):
         self.add(global_vars.BLOCKS)
 
         self.shape.elasticity = 0
-        self.shape.friction = 100
+        self.shape.friction = 100000
 
     def set_shape(self):
         return pymunk.Poly.create_box(self.body, self.size)
@@ -216,14 +216,14 @@ class Segment(BodySprite):
         else:
             return pymunk.Segment(self.body, -0.5 * self.v, 0.5 * self.v, self.r)
 
-    # def update(self):
-    #     super().update()
+    def update(self):
+        super().update()
     #     # self.body.moment = pymunk.moment_for_segment(self.mass, (0, 0), self.v, self.r)
     #     print('\tsegment', self.body)
     #
-    #     if self.damp:
-    #         self.body.angle = 0
-    #         self.body.angular_velocity *= 0.1
+        if self.damp:
+            self.body.angle = 0
+            self.body.angular_velocity *= 0.1
 
     def draw(self, s):
         pygame.draw.line(s, self.color,
@@ -234,19 +234,46 @@ class Segment(BodySprite):
 class LoadingPlatform(Segment):
     def __init__(self, p0, v, **kwargs):
         super().__init__(p0, v, **kwargs, body_type=pymunk.Body.STATIC)
-        self.met = False
+        self.has_block = False
+        self.met = False  # None = never touched, True = correct block, False = wrong block
 
-    def tagged(self, arbiter, space, data):
+    def block_collide(self, arbiter, space, data):
+        self.has_block = True
+        return True
+    def block_separated(self, arbiter, space, data):
+        self.has_block = False
+        return True
+
+    def correct_block_collide(self, arbiter, space, data):
 
         self.met = True
         # print('hi!', self.met)
         return True
 
-    def separated(self, arbiter, space, data):
-
+    def correct_block_separated(self, arbiter, space, data):
         self.met = False
         # print('bye!', self.met)
         return True
+
+class LoadingBox(pygame.sprite.Sprite):
+    def __init__(self, p0, p1, **kwargs):
+        super().__init__()
+        """
+        Makes an empty box with four walls, used to keep objects inside window
+        *Does not add to bodies sprite group
+        :param p0: top left corner
+        :param p1: bottom right corner
+        :param d: radius of walls
+        """
+        x0, y0 = p0
+        x1, y1 = p1
+        self.vs = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+
+            # seg.color = color
+            # SPACE.add(seg)
+    def draw(self, screen):
+        for i in range(4):
+            plat = (self.vs[i], pymunk.Vec2d(*(self.vs[(i + 1) % 4]) - pymunk.Vec2d(*self.vs[i])),)
 
 
 class Seesaw:

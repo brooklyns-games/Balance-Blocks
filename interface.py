@@ -8,7 +8,7 @@ class Text(pygame.sprite.DirtySprite):
     texts = pygame.sprite.Group()
     def __init__(self, string: str, x:int, y:int,
                  size:int, color=(255, 0, 0), font=None,
-                 time_limit=0, fade=0, fade_speed=0):
+                 time_limit=0, fade=50, fade_speed=0):
         super().__init__(Text.texts)
         self.string = string
         self.color = pygame.Color(color)
@@ -18,7 +18,7 @@ class Text(pygame.sprite.DirtySprite):
         self.time_limit = time_limit
         self.t1 = time.time()
         self.t2 = None
-        self.t3 = None
+        # self.t3 = None
 
         self.fade = fade
         self.fading = False
@@ -29,6 +29,7 @@ class Text(pygame.sprite.DirtySprite):
         self.size = self.text.get_size()
         self.image = clear_surface(*self.size)
         self.rect = pygame.Rect(x, y, *self.size)
+        self.dirty = 1
         self.update()
 
         # print(self.groups(), 'text groups')
@@ -37,25 +38,34 @@ class Text(pygame.sprite.DirtySprite):
         if string != self.string:
             self.string = string
             self.dirty = 1
-            self.text = self.font.render(self.string, True, self.color)
-            self.size = self.text.get_size()
-            self.rect = pygame.Rect(self.x, self.y, *self.size)
+            self.reset()
+
+    def reset(self):
+        self.text = self.font.render(self.string, True, self.color)
+        self.size = self.text.get_size()
+        self.rect = pygame.Rect(self.x, self.y, *self.size)
 
     def update(self):
+        self.t2 = time.time()
+        # print(self.t2)
         if self.time_limit > 0:
-
+            # print('time limit')
 
             if not self.fading:
-                self.t2 = time.time()
+                # self.t2 = time.time()
                 # print(self.t2 >= self.t1 + self.time_limit)
                 if self.t2 >= self.t1 + self.time_limit:
                     self.fading = True
 
             else:  # first stage
-                if self.color.r + self.fade >= 255:
+                self.dirty = 1
+                if self.color.a + self.fade >= 255:
                     self.kill()
                 else:
-                    self.color.r += self.fade
+                    # print(self.color.a)
+                    self.color.a += self.fade
+                    self.reset()
+
 
 
 
@@ -134,13 +144,22 @@ class Level:
             plat = LoadingPlatform((W / 2 + i * l, H - i * l), (l, 0),
                                    category=16, mask=7,
                                    collision_type=platform_handler,)
+            LoadingBox((W / 2 + i * l, H - i * l), (l, 50),)
             self.loading_platforms.append(plat)
             BLOCKS.add(b)
             self.blocks.append(b)  # to keep everything in order
 
             handler = SPACE.add_collision_handler(block_handler, platform_handler)
-            handler.begin = plat.tagged
-            handler.separate = plat.separated
+            handler.begin = plat.correct_block_collide
+            handler.separate = plat.correct_block_separated
+
+        for platform in self.loading_platforms:
+            for j in self.blocks:
+                handler2 = SPACE.add_collision_handler(j.shape.collision_type, platform.shape.collision_type)
+                handler2.post_solve = platform.block_collide
+                handler2.separate = platform.block_separated
+
+
         # todo equal weights should mean equal collision types
 
 

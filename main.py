@@ -53,9 +53,6 @@ def new_body_at(x=0, y=0, m=0, body_type=pymunk.Body.DYNAMIC, collision_type=0):
 
 
 
-
-
-
 temp_joint = None
 picking = False
 check_button = Button(W / 2, 0, 'Check', (0, 255, 0))
@@ -94,7 +91,7 @@ class App:
     @staticmethod
     def handle_clicking():
         global picking, check_button
-        print('\tclicked', clicked)
+        # print('\tclicked', clicked)
 
         left_click = pygame.mouse.get_pressed()[0]
         for i in clickables:
@@ -127,7 +124,12 @@ class App:
         got_all = True
         if not isinstance(self.level, Level):
             return
+
         for i in self.level.loading_platforms:
+            # print(i.met)
+            if not i.has_block:
+                Text("Not all decks are filled!", 50, 200, 40, time_limit=1, fade=10).draw(self.display)
+                return
             if not i.met:
                 got_all = False
                 break
@@ -197,24 +199,12 @@ class App:
 
             self.handle_clicking()
 
+            # print(list(i.has_block for i in self.level.loading_platforms))
+
             # self.level.sprite_objects.update()
             Button.buttons.update()
             Text.texts.update()
-
-            # print('updating bodies')
-            # for sprite in BODIES:
-            #     print(sprite.body.position, sprite.body, sprite)
-                # if sprite.body.mass == float('inf'):
-                #     continue
-                #     # raise Exception('infinite mass detected')
-                # sprite.body.position = float_to_int(sprite.body.position)
-            # for body in SPACE.bodies:
-            #     print(body.position, body)
-
             BODIES.update()
-
-            # joints.update()
-
             self.draw()
             pygame.display.update()
 
