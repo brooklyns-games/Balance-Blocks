@@ -5,6 +5,7 @@ import time
 
 class ClickableSprite:  # mixin
     def __init__(self):
+        """Mixin class for adding the ability to be clicked and interacted by player mouse"""
         clickables.add(self)
     def hover(self):
         pass
@@ -16,7 +17,7 @@ class ClickableSprite:  # mixin
         pass
     # def update(self):
     @abstractmethod
-    def detect_hover(self):
+    def detect_hover(self) -> bool:
         return False
     def update(self):
         if clicked.has(self):
@@ -34,7 +35,6 @@ class GameObject(pygame.sprite.DirtySprite):
     def __init__(self, x:int, y:int,
                  size:[int, int]=(0, 0), color=(255, 0, 0), clickable: bool=False, *groups):
         super().__init__(non_physics_sprites, *groups)
-        # todo this has physics sprite as an attribute
         # self.physics_sprite = None
 
         self.x, self.y = x, y
@@ -92,6 +92,7 @@ class LoadingBox(GameObject):
         pygame.draw.rect(self.image, 'red', self.rect.inflate(-20, -20), 5)
         # for i in range(4):
             # pygame.draw.line(self.image, 'black', self.vs[i], self.vs[(i + 1) % 4], width=15)
+    # def update(self):
 
 
 class Text(GameObject):

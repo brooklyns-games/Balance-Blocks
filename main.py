@@ -86,11 +86,11 @@ class App:
     @staticmethod
     def handle_clicking(event):
         global picking, check_button
-        print('\tclicked', clicked)
+        # print('\tclicked', clicked)
         # print(clickables.sprites())
 
         if event.type == pygame.MOUSEBUTTONDOWN:
-            print('click')
+            # print('click')
             for i in clickables:
                 # "if hovering"
 
@@ -101,31 +101,6 @@ class App:
                 clicked.sprite.drop()
                 clicked.empty()
 
-
-        # left_click = pygame.mouse.get_pressed()[0]
-        # for i in clickables:
-        #     if left_click:
-        #         if i.detect_hover():
-        #             picking = True
-        #             clicked.add(i)
-        #         # if check_button and check_button.rect.collidepoint(*pygame.mouse.get_pos()):
-        #         #     picking = True
-        #         #     clicked.add(check_button)
-        #     else:
-        #         picking = False
-        #
-        # # print(clicked)
-        # if len(clicked) > 0 and clicked.sprite in clickables:
-        #     if hasattr(clicked.sprite, 'body'):
-        #         if picking:
-        #             # print('hi!')
-        #
-        #
-        #         if not picking:
-        #             # print('not picking')
-        #
-        # if not picking:
-        #     clicked.empty()
 
 
     def check_won(self):
@@ -154,7 +129,7 @@ class App:
         if event.type == restart_level:
             self.level_display.set_string('Level ' + str(global_vars.level_num + 1))
             self.level.setup()
-            self.level.run()
+            # self.level.run()
         if event.type == new_level:
             if self.level:  # get rid of last level
                 self.level.end()

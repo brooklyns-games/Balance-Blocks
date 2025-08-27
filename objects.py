@@ -137,7 +137,10 @@ class BodySprite(pygame.sprite.Sprite, ABC):
         self.x, self.y = self.body.position
 
         self.game_sprite.rotate(self.body.angle, self.x, self.y)
-
+    def destroy(self):
+        SPACE.remove(self.body, self.shape)
+        self.game_sprite.kill()
+        self.kill()
 
 
 
@@ -194,6 +197,9 @@ class Block(BodySprite, ClickableSprite):
 
         self.shape.elasticity = 0
         self.shape.friction = 100000
+
+        self.loaded = False
+
     def detect_hover(self):
         return self.shape.point_query(pygame.mouse.get_pos()).distance <= 0
     def click(self):
@@ -201,6 +207,11 @@ class Block(BodySprite, ClickableSprite):
         # clicked.sprite.update()
     def drop(self):
         clicked.sprite.body.body_type = pymunk.Body.DYNAMIC
+        for loading_box in LoadingBox.loading_boxes:
+            if pygame.sprite.collide_rect(self.game_sprite, loading_box):
+                print('hi!')
+                self.body.angle = 0
+                self.snap_to_position(loading_box.rect.center)
 
 
     def set_shape(self):
@@ -217,11 +228,7 @@ class Block(BodySprite, ClickableSprite):
         self.body.position = pos
     def update(self):
         super().update()
-        for loading_box in LoadingBox.loading_boxes:
-            if pygame.sprite.collide_rect(self.game_sprite, loading_box):
-                print('hi!')
-                self.body.angle = 0
-                self.snap_to_position(loading_box.rect.center)
+
 
 
 class Triangle(BodySprite):
@@ -325,7 +332,8 @@ class Level:
         #     SPACE.add(sprite.joint)
     def end(self):
         for sprite in self.blocks + self.loading_platforms:
-            SPACE.remove(sprite.body, sprite.shape)
+            sprite.destroy()
+            # SPACE.remove(sprite.body, sprite.shape)
         # for sprite in self.sprite_objects:
         #     sprite.kill()
         # self.sprite_objects.empty()
