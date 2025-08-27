@@ -11,6 +11,8 @@ b0 = SPACE.static_body
 BODIES = pygame.sprite.Group()
 # joints = pygame.sprite.Group()
 BLOCKS = pygame.sprite.Group()
+clickables = pygame.sprite.Group() # sprites that can be interacted with by mouse
+non_physics_sprites = pygame.sprite.Group()
 
 
 
@@ -39,12 +41,6 @@ def clear():
     # todo find better way to clear objects in SPACE
     global SPACE
     SPACE = pymunk.Space()
-    # for shape in list(space.shapes):
-    #     space.remove(shape)
-    # for body in list(space.bodies):
-    #     space.remove(body)
-    # for constraint in list(space.constraints):
-    #     space.remove(constraint)
 
     BODIES.empty()
     # joints.empty()

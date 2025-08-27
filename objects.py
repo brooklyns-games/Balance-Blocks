@@ -7,14 +7,14 @@ You can use the set of scales to find the relative mass
 """
 import pygame
 import pymunk
+import random
 
 from pymunk import Vec2d
-
 from abc import ABC, abstractmethod
 
-import global_vars
-from global_vars import clear_surface
+from global_vars import *
 from constraints import *
+from interface import LoadingBox
 
 def transform(x, y, vertices):
     # Transform the vertices to world coordinates
@@ -51,7 +51,7 @@ def get_rect(shape):
 
     return pygame.Rect(min_x, min_y, max_x - min_x, max_y - min_y)
 
-clickables = pygame.sprite.Group() # sprites that can be interacted with by mouse
+
 
 class BodySprite(pygame.sprite.Sprite, ABC):
     siblings = pygame.sprite.Group()
@@ -65,7 +65,7 @@ class BodySprite(pygame.sprite.Sprite, ABC):
         :param color: Not implemented, go away
         :param clickable: able to be clicked, dragged, and dropped by mouse
         """
-        super().__init__(global_vars.BODIES, self.__class__.siblings)
+        super().__init__(BODIES, self.__class__.siblings)
         if clickable:
             self.add(clickables)
 
@@ -118,9 +118,6 @@ class BodySprite(pygame.sprite.Sprite, ABC):
         # assert self.body.mass > 0, "Mass must be positive and non-zero"
         # self.image = clear_surface(*self.rect.size)
 
-    def draw(self, s):
-        pass
-        # pygame.draw.rect(s, self.color, self.rect_update())
 
 
 class Ball(BodySprite):
@@ -172,7 +169,7 @@ class Block(BodySprite):
         """
         self.size = self.w, self.h = kwargs.get('size', (40, 40))
         super().__init__(x, y, m, **kwargs, clickable=True, body_type=pymunk.Body.DYNAMIC)
-        self.add(global_vars.BLOCKS)
+        self.add(BLOCKS)
 
         self.shape.elasticity = 0
         self.shape.friction = 100000
@@ -185,6 +182,14 @@ class Block(BodySprite):
         # self.body.velocity = Vec2d(0, 0)
         # self.body.velocity = (0, 0)
         return True
+    def snap_to_mouse(self, pos):
+        self.body.body_type = pymunk.Body.KINEMATIC
+        self.body.position = pos
+    def update(self):
+
+        for loading_box in LoadingBox.loading_boxes:
+            if pygame.sprite.collide_rect(self, loading_box):
+                print('hi!')
 
 class Triangle(BodySprite):
     def __init__(self, x, y, l, **kwargs):
@@ -255,25 +260,100 @@ class LoadingPlatform(Segment):
         # print('bye!', self.met)
         return True
 
-class LoadingBox(pygame.sprite.Sprite):
-    def __init__(self, p0, p1, **kwargs):
-        super().__init__()
-        """
-        Makes an empty box with four walls, used to keep objects inside window
-        *Does not add to bodies sprite group
-        :param p0: top left corner
-        :param p1: bottom right corner
-        :param d: radius of walls
-        """
-        x0, y0 = p0
-        x1, y1 = p1
-        self.vs = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+level_types = ['sort', 'total', 'balance', 'find']
 
-            # seg.color = color
-            # SPACE.add(seg)
-    def draw(self, screen):
-        for i in range(4):
-            plat = (self.vs[i], pymunk.Vec2d(*(self.vs[(i + 1) % 4]) - pymunk.Vec2d(*self.vs[i])),)
+class Level:
+    def __init__(self, number: int, weights: list, level_type='sort'):
+        """Manages level information and controls when to add level objects"""
+        self.number = number
+        self.weights = weights
+        self.level_type = level_type
+
+        self.loading_platforms = []
+        self.blocks = []
+        self.seesaw = None  # should be sprite groupsingle()
+
+        self.guesses = 0
+        self.wrongs = 0
+        self.wrong_limit = 3
+
+
+        # self.sprite_objects = pygame.sprite.Group()
+        # self.sprite_objects.add(self.level_display)
+        self.bodies = []
+
+
+    def run(self):
+        # Add only the current level's objects to SPACE
+        pass
+        # for sprite in BODIES:
+        #     SPACE.add(sprite.body, sprite.shape)
+        # for sprite in joints:
+        #     SPACE.add(sprite.joint)
+    def end(self):
+        for sprite in self.blocks + self.loading_platforms:
+            SPACE.remove(sprite.body, sprite.shape)
+        # for sprite in self.sprite_objects:
+        #     sprite.kill()
+        # self.sprite_objects.empty()
+
+        BLOCKS.empty()
+
+
+
+    def setup(self):
+        total_blocks = len(self.weights)
+        l = W / 2 / total_blocks
+        # BLOCKS.empty()
+        coords = [(100 + int(10 + i * (W / 2 - 20) / total_blocks), 50) for i in range(total_blocks)] # somehow randomize?
+        random.shuffle(coords)
+
+        unique_weights = list(set(self.weights))
+        weight_to_collision = {w: 10 + i for i, w in enumerate(unique_weights)}
+
+        for i in range(total_blocks):
+            weight = self.weights[i]
+            block_handler = weight_to_collision[weight]
+            platform_handler = max(weight_to_collision.values()) + i   # each handler has different collision type
+            # print(coords[i])
+            b = Block(*coords[i], weight,
+                      category=4, mask=22, collision_type=block_handler)
+            # print('block', b.body)
+
+
+            plat = LoadingPlatform((W / 2 + i * l, H - i * l), (l, 0),
+                                   category=16, mask=7,
+                                   collision_type=platform_handler,)
+            LoadingBox((W/2, H/2), b.rect.inflate(10, 10).size,)
+            self.loading_platforms.append(plat)
+            # BLOCKS.add(b)
+            self.blocks.append(b)  # to keep everything in order
+
+            handler = SPACE.add_collision_handler(block_handler, platform_handler)
+            handler.begin = plat.correct_block_collide
+            handler.separate = plat.correct_block_separated
+
+        for platform in self.loading_platforms:
+            for j in self.blocks:
+                handler2 = SPACE.add_collision_handler(j.shape.collision_type, platform.shape.collision_type)
+                handler2.post_solve = platform.block_collide
+                handler2.separate = platform.block_separated
+
+
+        # todo equal weights should mean equal collision types
+
+
+        # handlers2 = []
+        # for i in range(total_blocks):
+        #     # print(j)
+        #     handlers2 = [SPACE.add_collision_handler(10 + i, j)
+        #              for j in range(len(Deck.decks))]
+        #     for x, handler in enumerate(handlers2):
+        #         handler.begin = self.blocks[i].touching
+                # handler.separate = blocks[i].separated
+
+        # print(list(global_vars.bodies))
+
 
 
 class Seesaw:

@@ -55,7 +55,8 @@ def new_body_at(x=0, y=0, m=0, body_type=pymunk.Body.DYNAMIC, collision_type=0):
 
 temp_joint = None
 picking = False
-check_button = Button(W / 2, 0, 'Check', (0, 255, 0))
+check_button = Button(W / 2,
+                      0, 'Check', (0, 255, 0))
 
 # EVENTS = {}
 won = pygame.event.custom_type()
@@ -83,7 +84,7 @@ class App:
 
         self.basics = pygame.sprite.Group()
 
-        self.level_display = Text('yeet', 0, 0, 40)
+        self.level_display = Text('yeet', x=0, y=0, size=40)
 
 
 
@@ -92,10 +93,11 @@ class App:
     def handle_clicking():
         global picking, check_button
         # print('\tclicked', clicked)
-
+        # print(clickables.sprites())
         left_click = pygame.mouse.get_pressed()[0]
         for i in clickables:
             if left_click:
+                print(i.rect)
                 if i.rect.collidepoint(pygame.mouse.get_pos()):
                     picking = True
                     clicked.add(i)
@@ -107,12 +109,13 @@ class App:
             else:
                 picking = False
 
-
+        # print(clicked)
         if len(clicked) > 0 and clicked.sprite in clickables:
             if hasattr(clicked.sprite, 'body'):
                 if picking:
-                    clicked.sprite.body.body_type = pymunk.Body.KINEMATIC
-                    clicked.sprite.body.position = pygame.mouse.get_pos()
+                    print('hi!')
+                    clicked.sprite.snap_to_mouse(pygame.mouse.get_pos())
+
                 if not picking:
                     # print('not picking')
                     clicked.sprite.body.body_type = pymunk.Body.DYNAMIC
@@ -128,7 +131,7 @@ class App:
         for i in self.level.loading_platforms:
             # print(i.met)
             if not i.has_block:
-                Text("Not all decks are filled!", 50, 200, 40, time_limit=1, fade=10).draw(self.display)
+                Text("Not all decks are filled!", 50, 200, 40, time_limit=1, fade=10)
                 return
             if not i.met:
                 got_all = False
@@ -166,7 +169,7 @@ class App:
             self.check_won()
             self.level.guesses += 1
         if event.type == wrong:
-            Text("Wrong!", 50, 200, 40, time_limit=1, fade=10).draw(self.display)
+            Text("Wrong!", 50, 200, 40, time_limit=1, fade=10)
             self.level.wrongs += 1
             print('wrong! {}/{}'.format(self.level.wrongs, self.level.wrong_limit))
             if self.level.wrongs >= self.level.wrong_limit:
@@ -204,6 +207,7 @@ class App:
             # self.level.sprite_objects.update()
             Button.buttons.update()
             Text.texts.update()
+            non_physics_sprites.update()
             BODIES.update()
             self.draw()
             pygame.display.update()
@@ -215,16 +219,17 @@ class App:
             SPACE.step(1 / FPS)
 
     def draw(self):
-        # print('drawing')
         self.display.fill('gray')
-        # print(SPACE.bodies)
-        SPACE.debug_draw(DrawOptions(self.display))
 
-        for button in Button.buttons:
-            button.draw()
+
+        # for button in Button.buttons:
+        #     button.draw()
         Button.buttons.draw(self.display)
         Text.texts.draw(self.display)
-        self.level_display.draw(self.display)
+        non_physics_sprites.draw(self.display)
+
+        SPACE.debug_draw(DrawOptions(self.display))
+        # self.level_display.draw(self.display)
 
 if __name__ == '__main__':
     # ball1 = Ball(100, 0, 5) # test ball
