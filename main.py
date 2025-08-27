@@ -37,12 +37,6 @@ collision_types = {}
 #     max_velocity = 1000
 #     # pymunk.Body.update_velocity()
 
-def flip(x, y, null=False, return_as=tuple):
-    """Pymunk's y coords start at bottom and not top of window"""
-    if not null:
-        return return_as((x, H - y))
-    else:
-        return return_as((x, y))
 
 
 def new_body_at(x=0, y=0, m=0, body_type=pymunk.Body.DYNAMIC, collision_type=0):
@@ -97,8 +91,13 @@ class App:
         left_click = pygame.mouse.get_pressed()[0]
         for i in clickables:
             if left_click:
-                print(i.rect)
-                if i.rect.collidepoint(pygame.mouse.get_pos()):
+                # print(i.rect)
+                if hasattr(i, 'shape'):
+                    # print(i.shape.point_query(pygame.mouse.get_pos()))
+                    click_condition = i.shape.point_query(pygame.mouse.get_pos()).distance <= 0
+                else:
+                    click_condition = i.rect.collidepoint(pygame.mouse.get_pos())
+                if click_condition:
                     picking = True
                     clicked.add(i)
                 if check_button and check_button.rect.collidepoint(*pygame.mouse.get_pos()):
@@ -115,6 +114,7 @@ class App:
                 if picking:
                     print('hi!')
                     clicked.sprite.snap_to_mouse(pygame.mouse.get_pos())
+                    clicked.sprite.update()
 
                 if not picking:
                     # print('not picking')
@@ -200,11 +200,13 @@ class App:
             for event in pygame.event.get():
                 self.handle_events(event)
 
-            self.handle_clicking()
+
 
             # print(list(i.has_block for i in self.level.loading_platforms))
 
             # self.level.sprite_objects.update()
+            SPACE.step(1 / FPS)
+
             Button.buttons.update()
             Text.texts.update()
             non_physics_sprites.update()
@@ -212,11 +214,13 @@ class App:
             self.draw()
             pygame.display.update()
 
+            self.handle_clicking()
+
             text = f'fpg: {self.clock.get_fps():.1f}'
             pygame.display.set_caption(text)
 
             self.clock.tick(FPS)
-            SPACE.step(1 / FPS)
+
 
     def draw(self):
         self.display.fill('gray')
@@ -224,11 +228,13 @@ class App:
 
         # for button in Button.buttons:
         #     button.draw()
+        SPACE.debug_draw(DrawOptions(self.display))
         Button.buttons.draw(self.display)
         Text.texts.draw(self.display)
         non_physics_sprites.draw(self.display)
+        BODIES.draw(self.display)
 
-        SPACE.debug_draw(DrawOptions(self.display))
+
         # self.level_display.draw(self.display)
 
 if __name__ == '__main__':

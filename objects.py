@@ -16,14 +16,13 @@ from global_vars import *
 from constraints import *
 from interface import LoadingBox
 
-def transform(x, y, vertices):
-    # Transform the vertices to world coordinates
+def transform(body, vertices):
+    # Transform local vertices to world coordinates, including rotation
     transformed_vertices = []
+    angle = body.angle
+    pos = pymunk.Vec2d(*body.position)
     for v in vertices:
-        # print(v)
-        # print(pymunk.Vec2d(x, y), pymunk.Vec2d(*v))
-        tv = v + pymunk.Vec2d(x, y)
-        # print(tv)
+        tv = v.rotated(angle) + pos
         transformed_vertices.append(tv)
     return transformed_vertices
 
@@ -41,7 +40,7 @@ def get_rect(shape):
     else:
         return None  # Handle other shape types if needed
     # print(body.position)
-    transformed_vertices = transform(*body.position, vertices)
+    transformed_vertices = transform(body, vertices)
 
     # Calculate the bounding box
     min_x = min(v.x for v in transformed_vertices)
@@ -55,14 +54,12 @@ def get_rect(shape):
 
 class BodySprite(pygame.sprite.Sprite, ABC):
     siblings = pygame.sprite.Group()
-    def __init__(self, x, y, mass=10,
-                 body_type=pymunk.Body.DYNAMIC,
-                 clickable: bool=False, **kwargs):
+    def __init__(self, x, y, mass=10, body_type=pymunk.Body.DYNAMIC, clickable: bool=False, **kwargs):
         """
-        Base class for objects to add into the simulation. Most of these params are just pymunk.Body attrs
+        Base class for objects to add into the simulation. Has a pymunk body, shape
         :param x: body x-coord
         :param y: body y-coord
-        :param color: Not implemented, go away
+        :param color: for easier developer debugging
         :param clickable: able to be clicked, dragged, and dropped by mouse
         """
         super().__init__(BODIES, self.__class__.siblings)
@@ -83,7 +80,7 @@ class BodySprite(pygame.sprite.Sprite, ABC):
         self.rect = pygame.Rect(self.x, self.y, self.mass * 10, self.mass * 10)
         # self.image = clear_surface(*self.rect.size)
 
-
+        self.image = pygame.Surface(self.rect.size, pygame.SRCALPHA)
 
         SPACE.add(self.body, self.shape)
         # print('added', self.body, self.shape)
@@ -99,7 +96,17 @@ class BodySprite(pygame.sprite.Sprite, ABC):
         return shape
 
     def rect_update(self):
-        self.rect.update(*get_rect(self.shape))
+        # self.rect.update (*get_rect(self.shape))
+        bb = self.shape.cache_bb()
+        # print(self.rect)
+
+        l, b, r, t = bb
+        self.rect = pygame.Rect(int(l), int(H-t), int(r-l), int(t-b))
+        # print(self.rect.topleft, bb.top, bb.left)
+        # print(self.shape.bb.area())
+        # print('\t', self.rect.size[0] * self.rect.size[1])
+        # self.rect.topleft = flip(*self.rect.topleft)
+        # self.rect.topleft = self.rect.bottomleft
         return self.rect
 
     @abstractmethod
@@ -107,13 +114,17 @@ class BodySprite(pygame.sprite.Sprite, ABC):
         return pymunk.Circle(self.body, 10)
 
     def update(self):  # find way to put this in all children's update methods
+        # self.shape.update()
         # self.body.moment =0
         # if self.body.body_type == pymunk.Body.DYNAMIC:
         #     self.body.mass = self.m
-
+        # print(self.shape.bb)
         # print('updating', self.body, self.body.position, self.shape)
         self.x, self.y = self.body.position
         self.rect_update()
+
+        # pygame.draw.rect(self.image, self.color, self.rect)
+        # pygame.draw.rect(self.image, 'black', self.shape.cache_bb())
         # print('updating', self.body, self.body.position, self.shape)
         # assert self.body.mass > 0, "Mass must be positive and non-zero"
         # self.image = clear_surface(*self.rect.size)
@@ -168,7 +179,7 @@ class Block(BodySprite):
         A square or rectangle that can be dragged around, etc
         """
         self.size = self.w, self.h = kwargs.get('size', (40, 40))
-        super().__init__(x, y, m, **kwargs, clickable=True, body_type=pymunk.Body.DYNAMIC)
+        super().__init__(x, y, m, **kwargs, clickable=True, body_type=pymunk.Body.DYNAMIC, color='blue')
         self.add(BLOCKS)
 
         self.shape.elasticity = 0
@@ -186,7 +197,7 @@ class Block(BodySprite):
         self.body.body_type = pymunk.Body.KINEMATIC
         self.body.position = pos
     def update(self):
-
+        super().update()
         for loading_box in LoadingBox.loading_boxes:
             if pygame.sprite.collide_rect(self, loading_box):
                 print('hi!')
@@ -210,7 +221,7 @@ class Segment(BodySprite):
 
         # mid = p0 + v * 0.5
         super().__init__(*p0 if not self.center else (p0 + v * 0.5), mass=m,
-                         **kwargs)
+                         **kwargs, color='green')
         # self.body.position = p0  # Set the body's position to the start point
         self.shape.elasticity = 0.5
 

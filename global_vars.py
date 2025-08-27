@@ -45,7 +45,16 @@ def clear():
     BODIES.empty()
     # joints.empty()
 
+#todo remove
 def float_to_int(floats):
     return tuple(int(f) for f in floats)
+
+def flip(x, y, null=False, return_as=tuple):
+    """Pymunk's y coords start at bottom and not top of window"""
+    if not null:
+        return return_as((x, H - y))
+    else:
+        return return_as((x, y))
+
 
 clicked = pygame.sprite.GroupSingle()
