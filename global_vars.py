@@ -13,6 +13,7 @@ BODIES = pygame.sprite.Group()
 BLOCKS = pygame.sprite.Group()
 clickables = pygame.sprite.Group() # sprites that can be interacted with by mouse
 non_physics_sprites = pygame.sprite.Group()
+physics_sprites = pygame.sprite.Group()
 
 
 
@@ -45,9 +46,6 @@ def clear():
     BODIES.empty()
     # joints.empty()
 
-#todo remove
-def float_to_int(floats):
-    return tuple(int(f) for f in floats)
 
 def flip(x, y, null=False, return_as=tuple):
     """Pymunk's y coords start at bottom and not top of window"""

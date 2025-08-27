@@ -1,5 +1,4 @@
 from global_vars import *
-# from objects import *
 
 import time
 
@@ -7,12 +6,17 @@ class GameObject(pygame.sprite.DirtySprite):
     def __init__(self, x:int, y:int,
                  size:[int, int]=(0, 0), color=(255, 0, 0), *groups):
         super().__init__(non_physics_sprites, *groups)
-        # todo physics sprites have this as an attribute
+        # todo this has physics sprite as an attribute
+        # self.physics_sprite = None
+
         self.x, self.y = x, y
 
         self.size = size
         self.color = pygame.Color(color)
         self.image = clear_surface(*self.size)
+        self.image.fill(self.color)
+        self.base_image = self.image.copy()
+
         self.rect = pygame.Rect(x, y, *self.size)
 
         self.dirty = 1

@@ -5,6 +5,8 @@ And you have to rank their masses
 You can use the set of scales to find the relative mass
 
 """
+from typing import Tuple
+
 import pygame
 import pymunk
 import random
@@ -14,7 +16,11 @@ from abc import ABC, abstractmethod
 
 from global_vars import *
 from constraints import *
-from interface import LoadingBox
+from interface import LoadingBox, GameObject
+
+def bb_to_rect(bb: pymunk.BB):
+    l, b, r, t = bb
+    return  pygame.Rect(int(l), int(H - t), int(r - l), int(t - b))
 
 def transform(body, vertices):
     # Transform local vertices to world coordinates, including rotation
@@ -26,10 +32,7 @@ def transform(body, vertices):
         transformed_vertices.append(tv)
     return transformed_vertices
 
-def get_rect(shape):
-    # from https://www.google.com/search?q=pymunk+get+rect+from+shape&rlz=1C5CHFA_enUS954US954&oq=pymunk+get+rect+from+shape&gs_lcrp=EgZjaHJvbWUyBggAEEUYOTIHCAEQIRigATIHCAIQIRigATIHCAMQIRigATIHCAQQIRiPAtIBCDQwMDJqMGo3qAIAsAIA&sourceid=chrome&ie=UTF-8
-    body = shape.body
-
+def get_vertices(shape) -> "list[Tuple[float, float]]|list[pymunk.Vec2d]":
     if isinstance(shape, pymunk.Poly):
         vertices = shape.get_vertices()
     elif isinstance(shape, pymunk.Circle):
@@ -38,9 +41,17 @@ def get_rect(shape):
     elif isinstance(shape, pymunk.Segment):
         vertices = [shape.a, shape.b]
     else:
-        return None  # Handle other shape types if needed
+        return []  # Handle other shape types if needed
+    return vertices
     # print(body.position)
-    transformed_vertices = transform(body, vertices)
+
+
+def get_rect(shape):
+    # from https://www.google.com/search?q=pymunk+get+rect+from+shape&rlz=1C5CHFA_enUS954US954&oq=pymunk+get+rect+from+shape&gs_lcrp=EgZjaHJvbWUyBggAEEUYOTIHCAEQIRigATIHCAIQIRigATIHCAMQIRigATIHCAQQIRiPAtIBCDQwMDJqMGo3qAIAsAIA&sourceid=chrome&ie=UTF-8
+    body = shape.body
+    transformed_vertices = transform(body, get_vertices(shape))
+
+
 
     # Calculate the bounding box
     min_x = min(v.x for v in transformed_vertices)
@@ -63,6 +74,8 @@ class BodySprite(pygame.sprite.Sprite, ABC):
         :param clickable: able to be clicked, dragged, and dropped by mouse
         """
         super().__init__(BODIES, self.__class__.siblings)
+
+
         if clickable:
             self.add(clickables)
 
@@ -77,10 +90,16 @@ class BodySprite(pygame.sprite.Sprite, ABC):
         self.shape.collision_type = kwargs.get('collision_type', 0)
         self.shape.filter = pymunk.ShapeFilter(categories=kwargs.get('category', 0), mask=kwargs.get('mask', 0))
 
-        self.rect = pygame.Rect(self.x, self.y, self.mass * 10, self.mass * 10)
+        # self.rect = pygame.Rect(self.x, self.y, self.mass * 10, self.mass * 10)
         # self.image = clear_surface(*self.rect.size)
-
-        self.image = pygame.Surface(self.rect.size, pygame.SRCALPHA)
+        print(self.x, self.y)
+        print(bb_to_rect(pymunk.Poly(self.body, list(get_vertices(self.shape))).bb))
+        print(get_rect(self.shape))
+        rect = get_rect(self.shape)
+        self.game_sprite = GameObject(x = rect.left, y=rect.top, size=rect.size,
+                                      color=self.color, )
+        self.game_sprite.add(physics_sprites)
+        # self.image = pygame.Surface([10, 10], pygame.SRCALPHA)
 
         SPACE.add(self.body, self.shape)
         # print('added', self.body, self.shape)
@@ -97,37 +116,32 @@ class BodySprite(pygame.sprite.Sprite, ABC):
 
     def rect_update(self):
         # self.rect.update (*get_rect(self.shape))
+        # temp_shape = pymunk.Poly(self.body, self.shape.vertices)
         bb = self.shape.cache_bb()
         # print(self.rect)
 
-        l, b, r, t = bb
-        self.rect = pygame.Rect(int(l), int(H-t), int(r-l), int(t-b))
+
         # print(self.rect.topleft, bb.top, bb.left)
         # print(self.shape.bb.area())
         # print('\t', self.rect.size[0] * self.rect.size[1])
         # self.rect.topleft = flip(*self.rect.topleft)
         # self.rect.topleft = self.rect.bottomleft
-        return self.rect
+        # return self.rect
 
     @abstractmethod
     def set_shape(self):
         return pymunk.Circle(self.body, 10)
 
     def update(self):  # find way to put this in all children's update methods
-        # self.shape.update()
-        # self.body.moment =0
-        # if self.body.body_type == pymunk.Body.DYNAMIC:
-        #     self.body.mass = self.m
-        # print(self.shape.bb)
-        # print('updating', self.body, self.body.position, self.shape)
+        import math
         self.x, self.y = self.body.position
-        self.rect_update()
 
-        # pygame.draw.rect(self.image, self.color, self.rect)
-        # pygame.draw.rect(self.image, 'black', self.shape.cache_bb())
-        # print('updating', self.body, self.body.position, self.shape)
-        # assert self.body.mass > 0, "Mass must be positive and non-zero"
-        # self.image = clear_surface(*self.rect.size)
+        self.game_sprite.image = pygame.transform.rotate(self.game_sprite.base_image, -math.degrees(self.body.angle))
+        # print(self.game_sprite.rect)
+        # self.game_sprite.rect.update(*get_rect(self.shape))
+        self.game_sprite.rect = self.game_sprite.image.get_rect(center=(self.x, self.y))
+        # self.rect_update()
+
 
 
 
@@ -199,7 +213,7 @@ class Block(BodySprite):
     def update(self):
         super().update()
         for loading_box in LoadingBox.loading_boxes:
-            if pygame.sprite.collide_rect(self, loading_box):
+            if pygame.sprite.collide_rect(self.game_sprite, loading_box):
                 print('hi!')
 
 class Triangle(BodySprite):
@@ -335,7 +349,7 @@ class Level:
             plat = LoadingPlatform((W / 2 + i * l, H - i * l), (l, 0),
                                    category=16, mask=7,
                                    collision_type=platform_handler,)
-            LoadingBox((W/2, H/2), b.rect.inflate(10, 10).size,)
+            LoadingBox((W/2, H/2), b.game_sprite.rect.inflate(10, 10).size,)
             self.loading_platforms.append(plat)
             # BLOCKS.add(b)
             self.blocks.append(b)  # to keep everything in order
@@ -349,9 +363,6 @@ class Level:
                 handler2 = SPACE.add_collision_handler(j.shape.collision_type, platform.shape.collision_type)
                 handler2.post_solve = platform.block_collide
                 handler2.separate = platform.block_separated
-
-
-        # todo equal weights should mean equal collision types
 
 
         # handlers2 = []
@@ -376,8 +387,8 @@ class Seesaw:
 
         self.beam = Segment(p, v, category=1, mask=16, center=True)
         # self.beam.shape.damping = 0.9
-        mid_local = Vec2d(*float_to_int((0.5 * v)))
-        mid_world = float_to_int(p + mid_local)  # Attach only at the middle
+        mid_local = Vec2d(*(0.5 * v))
+        mid_world = p + mid_local # Attach only at the middle
         PivotJoint(b0, self.beam.body, mid_world, (0, 0), collide=False)
         #
         # carriers

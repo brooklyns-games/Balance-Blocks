@@ -112,7 +112,7 @@ class App:
         if len(clicked) > 0 and clicked.sprite in clickables:
             if hasattr(clicked.sprite, 'body'):
                 if picking:
-                    print('hi!')
+                    # print('hi!')
                     clicked.sprite.snap_to_mouse(pygame.mouse.get_pos())
                     clicked.sprite.update()
 
@@ -210,6 +210,7 @@ class App:
             Button.buttons.update()
             Text.texts.update()
             non_physics_sprites.update()
+            physics_sprites.update()
             BODIES.update()
             self.draw()
             pygame.display.update()
@@ -232,7 +233,8 @@ class App:
         Button.buttons.draw(self.display)
         Text.texts.draw(self.display)
         non_physics_sprites.draw(self.display)
-        BODIES.draw(self.display)
+        physics_sprites.draw(self.display)
+        # BODIES.draw(self.display)
 
 
         # self.level_display.draw(self.display)
