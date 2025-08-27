@@ -2,9 +2,37 @@ from global_vars import *
 
 import time
 
+
+class ClickableSprite:  # mixin
+    def __init__(self):
+        clickables.add(self)
+    def hover(self):
+        pass
+    def idle(self):
+        pass
+    def click(self):
+        pass
+    def drop(self):
+        pass
+    # def update(self):
+    @abstractmethod
+    def detect_hover(self):
+        return False
+    def update(self):
+        if clicked.has(self):
+            self.click()
+        else:
+            if self.detect_hover():
+                self.hover()
+            else:
+                self.idle()
+
+
+
+
 class GameObject(pygame.sprite.DirtySprite):
     def __init__(self, x:int, y:int,
-                 size:[int, int]=(0, 0), color=(255, 0, 0), *groups):
+                 size:[int, int]=(0, 0), color=(255, 0, 0), clickable: bool=False, *groups):
         super().__init__(non_physics_sprites, *groups)
         # todo this has physics sprite as an attribute
         # self.physics_sprite = None
@@ -25,8 +53,15 @@ class GameObject(pygame.sprite.DirtySprite):
         """Updates rect, draws to image surface"""
 
         self.rect.update(self.x, self.y, *self.size)
+        # self.game_sprite.rect.update(*get_rect(self.shape))
         self.draw()
 
+    def rotate(self, angle_radians, x, y):
+        self.image = pygame.transform.rotate(self.base_image, -math.degrees(angle_radians))
+        self.rect = self.image.get_rect(center=(x, y))
+
+    def default_draw(self):
+        pass
     def draw(self):
         """draws to image surface"""
         self.image.fill(self.color)
@@ -125,7 +160,7 @@ class Text(GameObject):
 
 
 
-class Button(GameObject):
+class Button(GameObject, ClickableSprite):
     buttons = pygame.sprite.Group()
     def __init__(self, x:int, y:int, text:str, color):
 
@@ -138,20 +173,20 @@ class Button(GameObject):
         self.add(Button.buttons, clickables)
 
         self.hovering = False
+    def detect_hover(self):
+        return self.rect.collidepoint(pygame.mouse.get_pos())
 
+    def hover(self):
+        self.color = 'green'
+    def idle(self):
+        self.color = 'black'
+    def click(self):
+        self.color = 'red'
     def update(self):
-        # pass
-        self.hovering = self.rect.collidepoint(*pygame.mouse.get_pos())
-        if self.hovering:
-            self.color = 'green'
-        else:
-            self.color = 'black'
-        if clicked.has(self):
-            self.color = 'red'
+        ClickableSprite.update(self)
         self.text.update()
-
         self.size = self.text.text.get_size()
-        super().update()
+        GameObject.update(self)
 
         # self.rect.update(self.x, self.y, *self.text.text.get_size())
     def draw(self):

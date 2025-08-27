@@ -1,6 +1,8 @@
 import pymunk
 import pygame
 
+import math
+from abc import ABC, abstractmethod
 
 FPS = 60  # frames per second
 W, H = 800, 400

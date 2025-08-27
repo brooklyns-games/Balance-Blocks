@@ -84,43 +84,48 @@ class App:
 
 
     @staticmethod
-    def handle_clicking():
+    def handle_clicking(event):
         global picking, check_button
-        # print('\tclicked', clicked)
+        print('\tclicked', clicked)
         # print(clickables.sprites())
-        left_click = pygame.mouse.get_pressed()[0]
-        for i in clickables:
-            if left_click:
-                # print(i.rect)
-                if hasattr(i, 'shape'):
-                    # print(i.shape.point_query(pygame.mouse.get_pos()))
-                    click_condition = i.shape.point_query(pygame.mouse.get_pos()).distance <= 0
-                else:
-                    click_condition = i.rect.collidepoint(pygame.mouse.get_pos())
-                if click_condition:
-                    picking = True
+
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            print('click')
+            for i in clickables:
+                # "if hovering"
+
+                if i.detect_hover():
                     clicked.add(i)
-                if check_button and check_button.rect.collidepoint(*pygame.mouse.get_pos()):
-                    picking = True
-                    clicked.add(check_button)
+        if event.type == pygame.MOUSEBUTTONUP:
+            if len(clicked) > 0:
+                clicked.sprite.drop()
+                clicked.empty()
 
 
-            else:
-                picking = False
-
-        # print(clicked)
-        if len(clicked) > 0 and clicked.sprite in clickables:
-            if hasattr(clicked.sprite, 'body'):
-                if picking:
-                    # print('hi!')
-                    clicked.sprite.snap_to_mouse(pygame.mouse.get_pos())
-                    clicked.sprite.update()
-
-                if not picking:
-                    # print('not picking')
-                    clicked.sprite.body.body_type = pymunk.Body.DYNAMIC
-        if not picking:
-            clicked.empty()
+        # left_click = pygame.mouse.get_pressed()[0]
+        # for i in clickables:
+        #     if left_click:
+        #         if i.detect_hover():
+        #             picking = True
+        #             clicked.add(i)
+        #         # if check_button and check_button.rect.collidepoint(*pygame.mouse.get_pos()):
+        #         #     picking = True
+        #         #     clicked.add(check_button)
+        #     else:
+        #         picking = False
+        #
+        # # print(clicked)
+        # if len(clicked) > 0 and clicked.sprite in clickables:
+        #     if hasattr(clicked.sprite, 'body'):
+        #         if picking:
+        #             # print('hi!')
+        #
+        #
+        #         if not picking:
+        #             # print('not picking')
+        #
+        # if not picking:
+        #     clicked.empty()
 
 
     def check_won(self):
@@ -199,6 +204,7 @@ class App:
         while self.running:
             for event in pygame.event.get():
                 self.handle_events(event)
+                self.handle_clicking(event)
 
 
 
@@ -207,6 +213,8 @@ class App:
             # self.level.sprite_objects.update()
             SPACE.step(1 / FPS)
 
+            for clickable in clickables:
+                ClickableSprite.update(clickable)
             Button.buttons.update()
             Text.texts.update()
             non_physics_sprites.update()
@@ -215,7 +223,7 @@ class App:
             self.draw()
             pygame.display.update()
 
-            self.handle_clicking()
+
 
             text = f'fpg: {self.clock.get_fps():.1f}'
             pygame.display.set_caption(text)

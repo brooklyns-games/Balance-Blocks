@@ -2,7 +2,8 @@ Todo:
 
 - Text dirty render
 - merge sprite groups
-
+- clickables
+- when sprite is killed, kill game sprite too
 
 - Seesaw detects greater than, less than, and equal to 
   - blocks are slipping off

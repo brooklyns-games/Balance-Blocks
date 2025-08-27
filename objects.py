@@ -12,11 +12,12 @@ import pymunk
 import random
 
 from pymunk import Vec2d
-from abc import ABC, abstractmethod
+
 
 from global_vars import *
 from constraints import *
-from interface import LoadingBox, GameObject
+from interface import LoadingBox, GameObject, ClickableSprite
+
 
 def bb_to_rect(bb: pymunk.BB):
     l, b, r, t = bb
@@ -133,14 +134,9 @@ class BodySprite(pygame.sprite.Sprite, ABC):
         return pymunk.Circle(self.body, 10)
 
     def update(self):  # find way to put this in all children's update methods
-        import math
         self.x, self.y = self.body.position
 
-        self.game_sprite.image = pygame.transform.rotate(self.game_sprite.base_image, -math.degrees(self.body.angle))
-        # print(self.game_sprite.rect)
-        # self.game_sprite.rect.update(*get_rect(self.shape))
-        self.game_sprite.rect = self.game_sprite.image.get_rect(center=(self.x, self.y))
-        # self.rect_update()
+        self.game_sprite.rotate(self.body.angle, self.x, self.y)
 
 
 
@@ -187,7 +183,7 @@ class Box(pygame.sprite.Sprite):
             SPACE.add(seg)
 
 
-class Block(BodySprite):
+class Block(BodySprite, ClickableSprite):
     def __init__(self, x, y, m, **kwargs):
         """
         A square or rectangle that can be dragged around, etc
@@ -198,16 +194,25 @@ class Block(BodySprite):
 
         self.shape.elasticity = 0
         self.shape.friction = 100000
+    def detect_hover(self):
+        return self.shape.point_query(pygame.mouse.get_pos()).distance <= 0
+    def click(self):
+        clicked.sprite.snap_to_position(pygame.mouse.get_pos())
+        # clicked.sprite.update()
+    def drop(self):
+        clicked.sprite.body.body_type = pymunk.Body.DYNAMIC
+
 
     def set_shape(self):
         return pymunk.Poly.create_box(self.body, self.size)
 
-    def touching(self, arbiter, space, data):
+    @staticmethod
+    def touching(arbiter, space, data):
         # print('yeet!')
         # self.body.velocity = Vec2d(0, 0)
         # self.body.velocity = (0, 0)
         return True
-    def snap_to_mouse(self, pos):
+    def snap_to_position(self, pos):
         self.body.body_type = pymunk.Body.KINEMATIC
         self.body.position = pos
     def update(self):
@@ -215,6 +220,9 @@ class Block(BodySprite):
         for loading_box in LoadingBox.loading_boxes:
             if pygame.sprite.collide_rect(self.game_sprite, loading_box):
                 print('hi!')
+                self.body.angle = 0
+                self.snap_to_position(loading_box.rect.center)
+
 
 class Triangle(BodySprite):
     def __init__(self, x, y, l, **kwargs):
