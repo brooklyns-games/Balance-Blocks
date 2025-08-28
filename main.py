@@ -142,7 +142,7 @@ class App:
         # Box((W / 2, 0), (W, H), category=16, mask=7)
 
         # Seesaw((100, 350), (200, 0), (100, 0), )
-        WeighingBalance((100, 50), (200, 0), (100, 0),)
+        WeighingBalance((100, 25), (200, 0), (100, 0),)
         # print('base done')
 
         # todo make group for box #2
@@ -157,8 +157,8 @@ class App:
                 self.handle_events(event)
                 self.handle_clicking(event)
 
-            SPACE.step(1 / FPS)
-            # SPACE.step(1/)
+            # SPACE.step(1 / FPS)
+            SPACE.step(1/100)
 
             for clickable in clickables:
                 ClickableSprite.update(clickable)

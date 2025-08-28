@@ -91,13 +91,21 @@ class WeighingBalance:
         mid_world = p + mid_local  # Attach only at the middle
         PivotJoint(b0, self.beam.body, mid_world, (0, 0), collide=False)
 
-        self.carrier1 = Deck(p - 0.5 * v2 + (0, 100), v2)
-        self.carrier2 = Deck(p + v - v2 * 0.5 + (0, 100), v2)
-        SlideJoint(self.carrier1.body, self.beam.body, (0,0), -self.beam.v / 2, 0, 100, False)
-        SlideJoint(self.carrier1.body, self.beam.body, self.carrier1.v, -self.beam.v / 2, 0, 100, False)
+        # self.carrier1 = Deck(p - 0.5 * v2 + (0, 100), v2)
+        # self.carrier2 = Deck(p + v - v2 * 0.5 + (0, 100), v2)
+        bracket = Bracket(self.beam.v * 0.5 + (0, 100), (-30, -30), (30, -30))
+        SlideJoint(bracket.body, self.beam.body, bracket.v1, -self.beam.v / 2, 0, 100, False)
+        SlideJoint(bracket.body, self.beam.body, bracket.v2, -self.beam.v / 2, 0, 100, False)
 
-        SlideJoint(self.carrier2.body, self.beam.body, (0, 0), self.beam.v / 2, 0, 100, False)
-        SlideJoint(self.carrier2.body, self.beam.body, self.carrier2.v, self.beam.v / 2, 0, 100, False)
+        bracket2 = Bracket(self.beam.start + self.beam.v *0.5 + (0, 0), (-30, -30), (30, -30))
+        SlideJoint(bracket2.body, self.beam.body, bracket2.v1, self.beam.v / 2, 0, 100, False)
+        SlideJoint(bracket2.body, self.beam.body, bracket2.v2, self.beam.v / 2, 0, 100, False)
+
+        # SlideJoint(self.carrier1.body, self.beam.body, (0,0), -self.beam.v / 2, 0, 100, False)
+        # SlideJoint(self.carrier1.body, self.beam.body, self.carrier1.v, -self.beam.v / 2, 0, 100, False)
+
+        # SlideJoint(self.carrier2.body, self.beam.body, (0, 0), self.beam.v / 2, 0, 100, False)
+        # SlideJoint(self.carrier2.body, self.beam.body, self.carrier2.v, self.beam.v / 2, 0, 100, False)
 
         # PinJoint(self.carrier1.body, self.beam.body, (self.carrier1.v / 2), -self.beam.v / 2)
         # PinJoint(self.carrier2.body, self.beam.body, (self.carrier1.v / 2), self.beam.v / 2)

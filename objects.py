@@ -268,9 +268,10 @@ class Segment(BodySprite):
         self.r = r
         self.center = center
         self.damp = damp
+        self.start = p0 if not self.center else (p0 + v * 0.5)
 
         # mid = p0 + v * 0.5
-        super().__init__(*p0 if not self.center else (p0 + v * 0.5), mass=m,
+        super().__init__(*self.start, mass=m,
                          **kwargs, color='green')
         # self.body.position = p0  # Set the body's position to the start point
         self.shape.elasticity = 0.5
