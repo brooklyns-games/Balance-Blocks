@@ -3,6 +3,7 @@ import pygame
 
 import math
 from abc import ABC, abstractmethod
+import random
 
 FPS = 60  # frames per second
 W, H = 800, 400
@@ -26,10 +27,6 @@ level_weights = [
         [20, 20, 40]
 
     ]
-
-
-level_num = -1  # default is -1
-# LEVEL = None
 
 def clear_surface(w, h, fill=None):
     if fill is None:

@@ -4,8 +4,10 @@ import time
 
 
 class ClickableSprite:  # mixin
-    def __init__(self):
-        """Mixin class for adding the ability to be clicked and interacted by player mouse"""
+    def __init__(self, single_click:bool=False):
+        """Mixin class for adding the ability to be clicked and interacted by player mouse.
+        Child needs to initialize ClickableSprite in its init class."""
+        self.single_click = single_click
         clickables.add(self)
     def hover(self):
         pass
@@ -22,6 +24,8 @@ class ClickableSprite:  # mixin
     def update(self):
         if clicked.has(self):
             self.click()
+            if self.single_click:
+                clicked.remove(self)
         else:
             if self.detect_hover():
                 self.hover()
@@ -29,11 +33,9 @@ class ClickableSprite:  # mixin
                 self.idle()
 
 
-
-
 class GameObject(pygame.sprite.DirtySprite):
     def __init__(self, x:int, y:int,
-                 size:[int, int]=(0, 0), color=(255, 0, 0), clickable: bool=False, *groups):
+                 size:[int, int]=(0, 0), color=(255, 0, 0), *groups):
         super().__init__(non_physics_sprites, *groups)
         # self.physics_sprite = None
 
@@ -51,7 +53,6 @@ class GameObject(pygame.sprite.DirtySprite):
         # self.update()
     def update(self):
         """Updates rect, draws to image surface"""
-
         self.rect.update(self.x, self.y, *self.size)
         # self.game_sprite.rect.update(*get_rect(self.shape))
         self.draw()
@@ -65,51 +66,25 @@ class GameObject(pygame.sprite.DirtySprite):
     def draw(self):
         """draws to image surface"""
         self.image.fill(self.color)
-
-class LoadingBox(GameObject):
-    loading_boxes = pygame.sprite.Group()
-    def __init__(self, p0, size, **kwargs):
-
-        """
-        Makes an empty box with four walls, used to keep objects inside window
-        *Does not add to bodies sprite group
-        :param p0: top left corner
-        :param size: bottom right corner
-        :param d: radius of walls
-        """
-        x0, y0 = p0
-        # x1, y1 = x0 + size[0], y0 + size[1]
-        super().__init__(x=x0, y=y0, size=size, **kwargs)
-        self.add(LoadingBox.loading_boxes)
-        # self.vs = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
-            #
-
-            # seg.color = color
-            # SPACE.add(seg)
-    def draw(self):
-        super().draw()
-        # print(self.rect)
-        pygame.draw.rect(self.image, 'red', self.rect.inflate(-20, -20), 5)
-        # for i in range(4):
-            # pygame.draw.line(self.image, 'black', self.vs[i], self.vs[(i + 1) % 4], width=15)
-    # def update(self):
+    def destroy(self):
+        self.kill()  # because bodysprite has this method :(
 
 
-class Text(GameObject):
+class Text(pygame.sprite.DirtySprite):
     texts = pygame.sprite.Group()
-    def __init__(self, string: str, x, y, size:int, font=None,
+    def __init__(self, string: str, x, y, size:int, font=None, color=(255, 0, 0),
                  time_limit=0, fade=50, fade_speed=0, **kwargs):
-        super().__init__(x=x, y=y, **kwargs)
-        self.add(Text.texts)
-
+        # super().__init__(x=x, y=y, **kwargs)
+        super().__init__(Text.texts)
+        # self.add(Text.texts)
 
         self.string = string
 
+        self.color = pygame.Color(color)
         self.font = pygame.font.SysFont(font, size)
         self.text = self.font.render(self.string, True, self.color)
         self.size = self.text.get_size()
-
-
+        self.x, self.y, *_ = self.rect = pygame.Rect((x, y), self.size)
 
         self.time_limit = time_limit
         self.t1 = time.time()
@@ -150,20 +125,21 @@ class Text(GameObject):
                     # print(self.color.a)
                     self.color.a += self.fade
                     self.reset()
-        super().update()
+        # super().update()
 
 
 
-    def draw(self):
+    def draw(self, screen):
         self.image = clear_surface(*self.size)
         self.image.blit(self.text, self.text.get_rect())
+        screen.blit(self.text, self.rect)
         # self.draw()
 
 
 
 class Button(GameObject, ClickableSprite):
     buttons = pygame.sprite.Group()
-    def __init__(self, x:int, y:int, text:str, color):
+    def __init__(self, x:int, y:int, text:str, color, event=None):
 
 
         self.x = int(x)
@@ -171,9 +147,10 @@ class Button(GameObject, ClickableSprite):
         self.string = text
         self.text = Text(text, x=x, y=y, size=40, color=color)
         super().__init__(x, y, self.text.text.get_size(), color=color)
+        ClickableSprite.__init__(self, single_click=True)
         self.add(Button.buttons, clickables)
+        self.event = event
 
-        self.hovering = False
     def detect_hover(self):
         return self.rect.collidepoint(pygame.mouse.get_pos())
 
@@ -183,6 +160,7 @@ class Button(GameObject, ClickableSprite):
         self.color = 'black'
     def click(self):
         self.color = 'red'
+        pygame.event.post(pygame.event.Event(self.event))
     def update(self):
         ClickableSprite.update(self)
         self.text.update()

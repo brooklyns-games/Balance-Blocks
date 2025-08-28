@@ -9,14 +9,13 @@ from typing import Tuple
 
 import pygame
 import pymunk
-import random
 
-from pymunk import Vec2d
+
 
 
 from global_vars import *
 from constraints import *
-from interface import LoadingBox, GameObject, ClickableSprite
+from interface import GameObject, ClickableSprite
 
 
 def bb_to_rect(bb: pymunk.BB):
@@ -77,8 +76,8 @@ class BodySprite(pygame.sprite.Sprite, ABC):
         super().__init__(BODIES, self.__class__.siblings)
 
 
-        if clickable:
-            self.add(clickables)
+        # if clickable:
+        #     self.add(clickables)
 
         self.color = kwargs.get('color', (255, 0, 0, 255))
         self.mass = mass
@@ -86,6 +85,7 @@ class BodySprite(pygame.sprite.Sprite, ABC):
         self.body = pymunk.Body(mass=self.mass, moment=1, body_type=body_type)
         self.body.position = self.x, self.y = x, y
 
+        self.shapes = []
         self.shape = self.set_shape()  # pymunk.Poly(self.body, [(-1, 1), (1, 1), (1, -1), (-1, -1)])
         self.shape = self.initialize_shape(self.shape)
         self.shape.collision_type = kwargs.get('collision_type', 0)
@@ -93,9 +93,9 @@ class BodySprite(pygame.sprite.Sprite, ABC):
 
         # self.rect = pygame.Rect(self.x, self.y, self.mass * 10, self.mass * 10)
         # self.image = clear_surface(*self.rect.size)
-        print(self.x, self.y)
-        print(bb_to_rect(pymunk.Poly(self.body, list(get_vertices(self.shape))).bb))
-        print(get_rect(self.shape))
+        # print(self.x, self.y)
+        # print(bb_to_rect(pymunk.Poly(self.body, list(get_vertices(self.shape))).bb))
+        # print(get_rect(self.shape))
         rect = get_rect(self.shape)
         self.game_sprite = GameObject(x = rect.left, y=rect.top, size=rect.size,
                                       color=self.color, )
@@ -143,7 +143,6 @@ class BodySprite(pygame.sprite.Sprite, ABC):
         self.kill()
 
 
-
 class Ball(BodySprite):
     def __init__(self, x, y, r, **kwargs):
         """Boing..."""
@@ -153,8 +152,6 @@ class Ball(BodySprite):
         self.h, self.w = self.radius * 2, self.radius * 2
 
         self.shape.elasticity = 1
-
-
 
     def set_shape(self):
         return pymunk.Circle(self.body, self.radius)
@@ -193,6 +190,7 @@ class Block(BodySprite, ClickableSprite):
         """
         self.size = self.w, self.h = kwargs.get('size', (40, 40))
         super().__init__(x, y, m, **kwargs, clickable=True, body_type=pymunk.Body.DYNAMIC, color='blue')
+        ClickableSprite.__init__(self)
         self.add(BLOCKS)
 
         self.shape.elasticity = 0
@@ -207,27 +205,50 @@ class Block(BodySprite, ClickableSprite):
         # clicked.sprite.update()
     def drop(self):
         clicked.sprite.body.body_type = pymunk.Body.DYNAMIC
-        for loading_box in LoadingBox.loading_boxes:
-            if pygame.sprite.collide_rect(self.game_sprite, loading_box):
-                print('hi!')
-                self.body.angle = 0
-                self.snap_to_position(loading_box.rect.center)
 
 
     def set_shape(self):
         return pymunk.Poly.create_box(self.body, self.size)
 
-    @staticmethod
-    def touching(arbiter, space, data):
-        # print('yeet!')
-        # self.body.velocity = Vec2d(0, 0)
-        # self.body.velocity = (0, 0)
+    def touching_deck(self, arbiter, space, data):
+        # self.body.velocity *= 0.9
+        self.body.velocity = (0, 0)
+        self.body.angle = 0
+        self.body.angular_velocity = 0
+
         return True
     def snap_to_position(self, pos):
         self.body.body_type = pymunk.Body.KINEMATIC
         self.body.position = pos
     def update(self):
         super().update()
+
+        for loading_box in LoadingBox.loading_boxes:
+            if pygame.sprite.collide_rect(self.game_sprite, loading_box.game_sprite):
+
+                self.body.angle = 0
+                self.snap_to_position(loading_box.game_sprite.rect.center)
+                loading_box.block.add(self)
+                break
+            else:
+                if loading_box.block.sprite == self:
+                    loading_box.block.empty()
+
+class Bracket:
+    def __init__(self, p, length1, length2, r=5,):
+        self.p = self.x, self.y = p
+        self.v1 = length1
+        self.v2 = length2
+        self.r = r
+        self.body = pymunk.Body()
+        self.body.position = self.p
+
+        self.s1 = pymunk.Segment(self.body, (0, 0), self.v1, self.r)
+        self.s2 = pymunk.Segment(self.body, (0, 0), self.v2, self.r)
+        self.s1.density = 1
+        self.s2.density = 1
+        SPACE.add(self.body, self.s1, self.s2)
+
 
 
 
@@ -268,153 +289,50 @@ class Segment(BodySprite):
     #
         if self.damp:
             self.body.angle = 0
-            self.body.angular_velocity *= 0.1
+            self.body.angular_velocity = 0
 
     def draw(self, s):
         pygame.draw.line(s, self.color,
                          (self.x, self.y), pymunk.Vec2d(self.x, self.y) + self.v,
                          self.r)
 
+class LoadingBox(BodySprite):
+    loading_boxes = pygame.sprite.Group()
+    def __init__(self, p0, size, target_weight, collision_type, **kwargs):
 
-class LoadingPlatform(Segment):
-    def __init__(self, p0, v, **kwargs):
-        super().__init__(p0, v, **kwargs, body_type=pymunk.Body.STATIC)
-        self.has_block = False
-        self.met = False  # None = never touched, True = correct block, False = wrong block
+        """
+        Makes an empty box with four walls, used to keep objects inside window
+        *Does not add to bodies sprite group
+        :param p0: top left corner
+        :param size: bottom right corner
+        :param d: radius of walls
+        """
+        x0, y0 = p0
+        # x1, y1 = x0 + size[0], y0 + size[1]
+        self.size = size
+        super().__init__(x=x0, y=y0, **kwargs, color='red', body_type=pymunk.Body.STATIC)
 
-    def block_collide(self, arbiter, space, data):
-        self.has_block = True
-        return True
-    def block_separated(self, arbiter, space, data):
-        self.has_block = False
-        return True
+        self.add(LoadingBox.loading_boxes)
 
-    def correct_block_collide(self, arbiter, space, data):
+        self.shape.sensor = True
 
-        self.met = True
-        # print('hi!', self.met)
-        return True
-
-    def correct_block_separated(self, arbiter, space, data):
-        self.met = False
-        # print('bye!', self.met)
-        return True
-
-level_types = ['sort', 'total', 'balance', 'find']
-
-class Level:
-    def __init__(self, number: int, weights: list, level_type='sort'):
-        """Manages level information and controls when to add level objects"""
-        self.number = number
-        self.weights = weights
-        self.level_type = level_type
-
-        self.loading_platforms = []
-        self.blocks = []
-        self.seesaw = None  # should be sprite groupsingle()
-
-        self.guesses = 0
-        self.wrongs = 0
-        self.wrong_limit = 3
+        self.block = pygame.sprite.GroupSingle()
+        self.target_weight = target_weight
 
 
-        # self.sprite_objects = pygame.sprite.Group()
-        # self.sprite_objects.add(self.level_display)
-        self.bodies = []
+    def set_shape(self):
+        return pymunk.Poly.create_box(self.body, self.size)
 
-
-    def run(self):
-        # Add only the current level's objects to SPACE
-        pass
-        # for sprite in BODIES:
-        #     SPACE.add(sprite.body, sprite.shape)
-        # for sprite in joints:
-        #     SPACE.add(sprite.joint)
-    def end(self):
-        for sprite in self.blocks + self.loading_platforms:
-            sprite.destroy()
-            # SPACE.remove(sprite.body, sprite.shape)
-        # for sprite in self.sprite_objects:
-        #     sprite.kill()
-        # self.sprite_objects.empty()
-
-        BLOCKS.empty()
-
-
-
-    def setup(self):
-        total_blocks = len(self.weights)
-        l = W / 2 / total_blocks
-        # BLOCKS.empty()
-        coords = [(100 + int(10 + i * (W / 2 - 20) / total_blocks), 50) for i in range(total_blocks)] # somehow randomize?
-        random.shuffle(coords)
-
-        unique_weights = list(set(self.weights))
-        weight_to_collision = {w: 10 + i for i, w in enumerate(unique_weights)}
-
-        for i in range(total_blocks):
-            weight = self.weights[i]
-            block_handler = weight_to_collision[weight]
-            platform_handler = max(weight_to_collision.values()) + i   # each handler has different collision type
-            # print(coords[i])
-            b = Block(*coords[i], weight,
-                      category=4, mask=22, collision_type=block_handler)
-            # print('block', b.body)
-
-
-            plat = LoadingPlatform((W / 2 + i * l, H - i * l), (l, 0),
-                                   category=16, mask=7,
-                                   collision_type=platform_handler,)
-            LoadingBox((W/2, H/2), b.game_sprite.rect.inflate(10, 10).size,)
-            self.loading_platforms.append(plat)
-            # BLOCKS.add(b)
-            self.blocks.append(b)  # to keep everything in order
-
-            handler = SPACE.add_collision_handler(block_handler, platform_handler)
-            handler.begin = plat.correct_block_collide
-            handler.separate = plat.correct_block_separated
-
-        for platform in self.loading_platforms:
-            for j in self.blocks:
-                handler2 = SPACE.add_collision_handler(j.shape.collision_type, platform.shape.collision_type)
-                handler2.post_solve = platform.block_collide
-                handler2.separate = platform.block_separated
-
-
-        # handlers2 = []
-        # for i in range(total_blocks):
-        #     # print(j)
-        #     handlers2 = [SPACE.add_collision_handler(10 + i, j)
-        #              for j in range(len(Deck.decks))]
-        #     for x, handler in enumerate(handlers2):
-        #         handler.begin = self.blocks[i].touching
-                # handler.separate = blocks[i].separated
-
-        # print(list(global_vars.bodies))
-
-
-
-class Seesaw:
-    def __init__(self, center: tuple, beam_length: "Vec2d|tuple", carrier_length: "Vec2d|tuple"):
-
-        p = Vec2d(*center)
-        v = Vec2d(*beam_length)
-        v2 = Vec2d(*carrier_length)
-
-        self.beam = Segment(p, v, category=1, mask=16, center=True)
-        # self.beam.shape.damping = 0.9
-        mid_local = Vec2d(*(0.5 * v))
-        mid_world = p + mid_local # Attach only at the middle
-        PivotJoint(b0, self.beam.body, mid_world, (0, 0), collide=False)
-        #
-        # carriers
-        self.carrier1 = Deck(p - 0.5 * v2, v2)
-        PivotJoint(self.carrier1.body, self.beam.body, v2 * 0.5, v * -0.5)
-
-        self.carrier2 = Deck(p + v - v2 * 0.5, v2)
-        PivotJoint(self.carrier2.body, self.beam.body, v2 * 0.5, v * 0.5)
-
-        self.fulcrum = Triangle(*mid_world, 50, category=8, mask=1, body_type=pymunk.Body.STATIC)
+    # def draw(self):
+    #     super().draw()
+    #     # print(self.rect)
+    #     pygame.draw.rect(self.image, 'red', self.rect.inflate(-20, -20), 5)
+    #     # for i in range(4):
+    #         # pygame.draw.line(self.image, 'black', self.vs[i], self.vs[(i + 1) % 4], width=15)
+    # # def update(self):
+    # def update(self):
+    #     super().update()
+    #     # print(self.block)
 
 
 class Deck(Segment, pygame.sprite.Sprite):
@@ -425,5 +343,6 @@ class Deck(Segment, pygame.sprite.Sprite):
         # self.load = pygame.sprite.GroupSingle()
         super().__init__(p0, v, m=100, damp=True, category=2, mask=20, collision_type=len(Deck.decks),
                          )  # body_type=pymunk.Body.KINEMATIC
+        self.shape.friction = 100000
         Deck.decks.append(self)
 
